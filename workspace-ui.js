@@ -32,6 +32,7 @@ function renderWorkspace(job) {
   ['Primary','Second','Third'].forEach((suffix,i)=>{text('#metric'+suffix+'Label',values[i][0]);text('#metric'+suffix,values[i][1]);text('#metric'+suffix+'Note',values[i][2]);});
   if (ui.saved) { text('#runStatus','本机历史快照');text('#evidenceSource',sourceNames[r.mode]+' · 快照');text('#runCounters',`原运行记录 · 模型 ${job.model_calls} 轮 · 工具 ${job.tool_calls} 次 · 新发地图请求 ${job.map_requests}`); }
   renderReviews();
+  refreshWorkspaceReport();
   if (ui.saved) renderScenarios(ui.scenarios);
   else {
     const identity=job.id;
@@ -92,7 +93,7 @@ function renderReviews() {
     const note=element('textarea');note.value=saved.note;note.maxLength=500;note.rows=2;note.placeholder='核验来源、入口情况或发现的问题';note.setAttribute('aria-label',task.title+' 核验备注');
     const time=element('span',saved.updated_at?'本机记录 '+new Date(saved.updated_at).toLocaleString():'尚未保存','review-time');
     const save=element('button','保存备注','button review-save');save.type='button';save.addEventListener('click',()=>{
-      try{ensureSaved();const value=localRecords.review(ui.recordId,task.key,select.value,note.value);ui.reviews[task.key]=value;time.textContent='已保存 '+new Date(value.updated_at).toLocaleString();text('#copyStatus','核验备注已保存在本机，原始结果保持独立。');}catch(error){text('#copyStatus',error.message);time.textContent='未保存：'+error.message;}
+      try{ensureSaved();const value=localRecords.review(ui.recordId,task.key,select.value,note.value);ui.reviews[task.key]=value;refreshWorkspaceReport();time.textContent='已保存 '+new Date(value.updated_at).toLocaleString();text('#copyStatus','核验备注已保存在本机，原始结果保持独立。');}catch(error){text('#copyStatus',error.message);time.textContent='未保存：'+error.message;}
     });
     item.append(description,select,note,time,save);return item;
   }));
@@ -101,6 +102,14 @@ function ensureSaved() {
   if(!localRecords)throw new Error('浏览器未开放本机存储，仍可复制或导出报告。');
   if(ui.saved && ui.recordId && localRecords.get(ui.recordId))return;
   const value=localRecords.save(ui.job,ui.submittedTask,payload(),ui.scenarios);ui.recordId=value.id;ui.reviews=value.reviews;
+}
+function refreshWorkspaceReport() {
+  if(!ui.job?.result)return;
+  const labels=new Map(reviewTasks().map(task=>[task.key,task.title]));
+  const notes=Object.entries(ui.reviews).filter(([,v])=>v.note);
+  ui.report=reportMarkdown(ui.job);
+  if(notes.length)ui.report+='\n\n## 本机核验备注（独立于原始结果）\n\n'+notes.map(([key,v])=>`- ${labels.get(key) || key}：${{pending:'待核验',checked:'已核验（本机记录）',excluded:'暂不采用（本机记录）'}[v.status]}；${v.note}；记录时间 ${v.updated_at}`).join('\n');
+  text('#assistantReport',ui.report);
 }
 function renderHistory() {
   const rows=localRecords?.list() || [];
@@ -137,11 +146,12 @@ function printMap(analysis) {
 function buildPrintSheet() {
   const sheet=$('#printSheet'),a=ui.result?.analysis;if(!a)return;
   const r=a.inspection,name=a.type==='synthetic'?r.community.name:r.community.address;
-  sheet.replaceChildren(element('h1','邻里圈 · 生活圈体检摘要'),element('p',`${name} · ${sourceNames[r.mode]}${ui.saved?' · 已保存快照':''}`,'print-meta'),element('p',`需求：${ui.submittedTask}`),element('p',`阈值 ${r.parameters.minutes} 分钟 · 类别 ${r.parameters.categories.join('、')} · 体检证据 ${r.evidence_id}`,'print-meta'),printMap(a),element('p','绿色：阈值内/覆盖；红色：阈值外/缺口；黄色：未知。样点示意不表示连续边界或人口覆盖。','print-note'));
+  const task=ui.submittedTask.length>100?ui.submittedTask.slice(0,100)+'…（全文见Markdown）':ui.submittedTask;
+  sheet.replaceChildren(element('h1','邻里圈 · 生活圈体检摘要'),element('p',`${name} · ${sourceNames[r.mode]}${ui.saved?' · 已保存快照':''}`,'print-meta'),element('p',`需求：${task}`),element('p',`阈值 ${r.parameters.minutes} 分钟 · 类别 ${r.parameters.categories.join('、')} · 体检证据 ${r.evidence_id}`,'print-meta'),printMap(a),element('p','绿色：阈值内/覆盖；红色：阈值外/缺口；黄色：未知。样点示意不表示连续边界或人口覆盖。','print-note'));
   sheet.append(element('h2','结论与依据'));const facts=element('ul');orderedFacts(ui.result).filter(f=>!f.id.endsWith(':limits')).slice(0,4).forEach(f=>facts.append(element('li',f.text+' [证据 '+f.evidence_id+']')));sheet.append(facts);
   if(ui.result.comparison.length){sheet.append(element('h2','候选方案（分别核算）'));const list=element('ul');ui.result.comparison.slice(0,3).forEach((c,i)=>list.append(element('li',a.type==='synthetic'?`方案${i+1} · ${c.category} @ ${c.node}：同时可达 ${c.before_pct}% → ${c.after_pct}%，独立新增 ${c.gain_count} 个样点；剩余 ${c.gap_count}。`:`参考点${i+1} · ${c.category}：独立增益 ${c.independent_gain_count}，组合新增 ${c.marginal_gain_count}；组合剩余 ${c.gap_count}。`)));sheet.append(list);}
   if(ui.scenarios){sheet.append(element('h2','固定样点情景对比'));sheet.append(element('p',ui.scenarios.rows.map(v=>`${v.minutes}分钟：${v.ratio_pct===null?'未知':v.ratio_pct+'%'}（${v.reachable}/${v.known}，未知${v.unknown}）`).join('；')));sheet.append(element('p',ui.scenarios.note,'print-note'));}
-  const notes=Object.values(ui.reviews).filter(v=>v.note).slice(0,3);if(notes.length){sheet.append(element('h2','本机核验备注（不改写原始结果）'));notes.forEach(v=>sheet.append(element('p',v.note.slice(0,140))));}
+  const notes=Object.values(ui.reviews).filter(v=>v.note).slice(0,2);if(notes.length){sheet.append(element('h2','本机核验备注（节选，不改写原始结果）'));notes.forEach(v=>sheet.append(element('p',v.note.slice(0,80)+(v.note.length>80?'…':''))));sheet.append(element('p','完整备注见本机记录与Markdown报告。','print-note'));}
   sheet.append(element('h2','下一步与口径'));sheet.append(element('p',ui.result.actions.join(' ')));sheet.append(element('p','等权样点不代表人口或土地面积；设施营业、入口、容量与用地仍需核验。完整明细与证据可导出Markdown查看。','print-note'));sheet.append(element('p',`报告生成：${new Date().toLocaleString()}；模型 ${modeNames[ui.job.mode]}；原运行新增地图请求 ${ui.job.map_requests}。${r.replay?.recorded_at?'地图录制：'+r.replay.recorded_at+'。':''}`,'print-note'));
 }
 $('#toggleParameters').addEventListener('click',()=>{const collapsed=document.body.classList.toggle('params-collapsed');$('#toggleParameters').setAttribute('aria-expanded',String(!collapsed));});

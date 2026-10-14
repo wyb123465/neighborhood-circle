@@ -15,7 +15,7 @@
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt -c constraints.txt
-.\start.ps1
+.\.venv\Scripts\python.exe scripts/serve.py --mode synthetic
 ```
 
 打开 <http://127.0.0.1:8000> 查看项目首页，分析工作台位于 `/assistant.html`，原合成计算明细位于 `/diagnosis.html`，真实数据明细位于 `/live.html`。
