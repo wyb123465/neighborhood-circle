@@ -23,5 +23,6 @@ test('official route links encode text and reject invalid locations',()=>{
  const url=officialRouteUrl({lat:31.2,lng:121.4},{lat:31.21,lng:121.41},'上海 & city');
  assert.equal(new URL(url).hostname,'api.map.baidu.com');
  assert.equal(new URL(url).searchParams.get('region'),'上海 & city');
+ assert.equal(new URL(officialRouteUrl({lat:39.9,lng:116.4},{lat:39.91,lng:116.41})).searchParams.has('region'),false);
  assert.equal(officialRouteUrl({lat:NaN,lng:0},{lat:0,lng:0}),null);
 });

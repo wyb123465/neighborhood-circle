@@ -32,9 +32,10 @@
     }
     remove(id) { this.write(this.list().filter(r => r.id !== id)); }
   }
-  function officialRouteUrl(origin, destination, city = '上海') {
+  function officialRouteUrl(origin, destination, city = '') {
     for (const p of [origin, destination]) if (!p || !Number.isFinite(p.lat) || !Number.isFinite(p.lng) || Math.abs(p.lat) > 85 || Math.abs(p.lng) > 180) return null;
-    const params = new URLSearchParams({ origin: 'latlng:' + origin.lat + ',' + origin.lng + '|name:体检中心', destination: 'latlng:' + destination.lat + ',' + destination.lng + '|name:核验终点', mode: 'walking', region: city || '上海', coord_type: 'bd09ll', output: 'html', src: 'webapp.neighborhood-circle.demo' });
+    const params = new URLSearchParams({ origin: 'latlng:' + origin.lat + ',' + origin.lng + '|name:体检中心', destination: 'latlng:' + destination.lat + ',' + destination.lng + '|name:核验终点', mode: 'walking', coord_type: 'bd09ll', output: 'html', src: 'webapp.neighborhood-circle.demo' });
+    if (typeof city === 'string' && city.trim()) params.set('region', city.trim());
     return 'https://api.map.baidu.com/direction?' + params;
   }
   if (typeof module !== 'undefined') module.exports = { LocalInspectionStore, officialRouteUrl };
