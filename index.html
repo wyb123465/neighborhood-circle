@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f7f7">
+  <title>邻里圈 · 生活圈体检</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="assets/vendor/leaflet.css">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="workspace.css">
+</head>
+<body>
+  <a class="skip" href="#workspace">跳转到工作区</a>
+  <header class="topbar ui-header">
+    <a class="brand" href="#workspace"><i data-lucide="blocks"></i><h1>邻里圈</h1><span>生活圈体检</span></a>
+    <nav aria-label="工作区导航"><a href="#workspace">空间诊断</a><a href="#facilities">设施明细</a><a href="/live.html">真实数据</a><a href="/assistant.html">智能助手</a><button id="methodButton" class="icon-button" title="数据口径" aria-label="数据口径"><i data-lucide="info"></i></button></nav>
+  </header>
+  <main id="workspace">
+    <div class="heading-row"><div><span class="eyebrow">社区治理 / 体检工作台</span><h2 id="communityTitle">生活圈体检</h2></div><span class="mode"><i data-lucide="flask-conical"></i>合成样例 · 本次未调用百度</span></div>
+    <form id="inspectionForm">
+      <fieldset id="config" disabled>
+        <div class="config-row">
+          <label class="community-field">片区样例<select id="community" name="community"><option value="bridge-demo">加载样例中</option></select></label>
+          <label>步行阈值（分钟）<input id="minutes" type="number" min="5" max="30" step="1" value="15" required></label>
+          <label>假设步速（米/分钟）<input id="speed" type="number" min="40" max="100" step="1" value="80" required></label>
+          <button class="button primary" type="submit"><i data-lucide="scan-search"></i>重新体检</button>
+          <button id="demoPreset" class="button" type="button" title="一键载入演示参数：滨河片区 · 仅养老 · 15 分钟 · 80 米/分钟"><i data-lucide="presentation"></i>演示预设</button>
+        </div>
+        <div class="filters-row"><fieldset class="categories"><legend>关注设施</legend><label><input type="checkbox" name="category" value="医疗" checked><span class="dot medical"></span>医疗</label><label><input type="checkbox" name="category" value="养老" checked><span class="dot care"></span>养老</label><label><input type="checkbox" name="category" value="教育" checked><span class="dot education"></span>教育</label><label><input type="checkbox" name="category" value="购物" checked><span class="dot shopping"></span>购物</label></fieldset><span class="quiet" id="calculationStatus" role="status">连接本地服务</span></div>
+      </fieldset>
+    </form>
+    <div id="error" role="alert" hidden><span id="errorText"></span><button id="retryButton" class="button">重试</button></div>
+    <section id="results" aria-label="体检结果" hidden>
+      <div class="metrics">
+        <div class="main-metric"><span>所选各类服务同时可达</span><strong id="combined">0<small>%</small></strong><span id="baseline">等权采样点口径</span></div>
+        <div><span>缺口采样点</span><strong id="gaps">0</strong><span id="sampleCount"></span></div>
+        <div><span>所选设施</span><strong id="facilityCount">0</strong><span id="additionState">原有样例设施</span></div>
+        <div><span>直线范围高估</span><strong id="overestimate">0</strong><span>中心点出发的采样点数</span></div>
+      </div>
+      <div class="analysis-grid">
+        <section class="map-workspace" aria-labelledby="mapHeading">
+          <div class="map-toolbar"><h3 id="mapHeading">片区可达性</h3><div class="segments" aria-label="地图图层"><button type="button" data-view="gaps" aria-pressed="true">服务缺口</button><button type="button" data-view="reach" aria-pressed="false">中心可达</button></div><div class="map-actions"><button id="pickCenter" class="icon-button" title="选择中心点" aria-label="选择中心点" aria-pressed="false"><i data-lucide="map-pin-plus"></i></button><button id="fitMap" class="icon-button" title="适应地图范围" aria-label="适应地图范围"><i data-lucide="scan"></i></button><button id="zoomIn" class="icon-button" title="放大地图" aria-label="放大地图"><i data-lucide="plus"></i></button><button id="zoomOut" class="icon-button" title="缩小地图" aria-label="缩小地图"><i data-lucide="minus"></i></button></div></div>
+          <div id="map" role="region" aria-label="合成路网地图"></div>
+          <div class="map-legend"><span><i class="legend-box gap"></i>服务缺口</span><span><i class="legend-box reachable"></i>中心可达</span><span><i class="legend-line"></i>直线阈值</span><span><i class="legend-line route"></i>证据路径</span><span id="centerLabel"></span></div>
+          <div class="route-evidence"><div><span class="eyebrow">路径证据 / 中心到采样点</span><strong id="routeComparison"></strong></div><button id="routeButton" class="button" type="button"><i data-lucide="route"></i>定位路径</button></div>
+        </section>
+        <aside class="diagnosis" aria-labelledby="diagnosisHeading">
+          <div class="section-title"><h3 id="diagnosisHeading">设施覆盖</h3><button id="reportButton" class="icon-button" title="查看体检报告" aria-label="查看体检报告"><i data-lucide="file-chart-column"></i></button></div>
+          <p id="conclusion" class="conclusion"></p><div id="coverageList" class="coverage-list"></div>
+          <div class="section-title candidates-title"><h3>候选设施模拟</h3><button id="undoSimulation" class="icon-button" title="撤销模拟" aria-label="撤销模拟" disabled><i data-lucide="undo-2"></i></button></div>
+          <div id="candidates"></div><p class="caveat">候选排名：新增可达采样点。未核验用地与容量。</p>
+          <details class="km-details"><summary>1 公里专项检查 <span>原有设施 / 直线</span></summary><div id="kmChecks"></div></details>
+        </aside>
+      </div>
+      <section id="facilities" class="facility-section">
+        <div class="section-title"><div><span class="eyebrow">可追溯数据</span><h3>设施与步行耗时</h3></div><button id="exportJson" class="button" type="button"><i data-lucide="download"></i>导出结果 JSON</button></div>
+        <div class="table-scroll"><table><thead><tr><th>编号</th><th>设施</th><th>类别</th><th>样例节点</th><th>中心点出发 / 约分钟</th><th>阈值内可达（未舍入）</th></tr></thead><tbody id="facilityRows"></tbody></table></div>
+        <div class="evidence-footer"><span id="evidenceId"></span><span id="methodBadge">NetworkX 最短路径 · 局部米制坐标</span></div>
+      </section>
+    </section>
+  </main>
+  <dialog id="reportDialog" aria-labelledby="reportTitle"><div class="dialog-heading"><h2 id="reportTitle">体检报告</h2><button class="icon-button close-dialog" aria-label="关闭报告" title="关闭"><i data-lucide="x"></i></button></div><div id="reportContent"></div><div class="dialog-actions"><button id="exportJsonFromReport" class="button" type="button"><i data-lucide="braces"></i>导出 JSON</button><button id="downloadReport" class="button primary"><i data-lucide="download"></i>导出 Markdown 报告</button></div></dialog>
+  <dialog id="methodDialog" aria-labelledby="methodTitle"><div class="dialog-heading"><h2 id="methodTitle">数据口径与边界</h2><button class="icon-button close-dialog" aria-label="关闭口径说明" title="关闭"><i data-lucide="x"></i></button></div><ul id="limitations"><li>合成样例，非真实社区数据。</li></ul><dl><dt>15 分钟覆盖率</dt><dd>采样点到最近同类设施的路网最短距离 ÷ 假设步速，不超过阈值的点数 ÷ 总采样点数。</dd><dt>各类服务同时可达</dt><dd>每一类所选设施都在阈值内可达的采样点比例；不是各类别覆盖率的平均值。</dd><dt>中心点可达</dt><dd>中心到各节点的最短路径阈值判断。着色的是离散样本，不是连续区域精确边界。</dd><dt>1 公里专项检查</dt><dd>每个采样点到原有菜市场、药店、小学的直线距离；与 15 分钟规则分别输出。</dd></dl></dialog>
+  <div class="toast" id="toast" role="status" hidden></div>
+  <script src="assets/vendor/leaflet.js"></script>
+  <script src="assets/vendor/lucide.min.js"></script>
+  <script src="app.js?v=0.4.1"></script>
+</body>
+</html>

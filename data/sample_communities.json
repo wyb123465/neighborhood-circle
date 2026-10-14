@@ -1,0 +1,32 @@
+[
+  {
+    "id": "bridge-demo", "name": "滨河片区 · 合成样例", "version": "synthetic-2026-09-05-v2",
+    "source": "团队自建合成路网与设施，不对应真实社区或百度数据",
+    "columns": 13, "rows": 11, "spacing_m": 160, "center": "5,5",
+    "barrier_column": 6, "crossing_rows": [1, 9],
+    "facilities": [
+      {"id": "medical-1", "name": "样例药店 A", "category": "医疗", "kind": "药店", "node": "2,6"},
+      {"id": "medical-2", "name": "样例卫生站 B", "category": "医疗", "kind": "卫生站", "node": "10,2"},
+      {"id": "care-1", "name": "样例养老站 A", "category": "养老", "kind": "养老站", "node": "1,4"},
+      {"id": "school-1", "name": "样例小学 A", "category": "教育", "kind": "小学", "node": "3,2"},
+      {"id": "school-2", "name": "样例幼儿园 B", "category": "教育", "kind": "幼儿园", "node": "10,8"},
+      {"id": "shop-1", "name": "样例菜市场 A", "category": "购物", "kind": "菜市场", "node": "2,8"},
+      {"id": "shop-2", "name": "样例超市 B", "category": "购物", "kind": "超市", "node": "9,4"}
+    ]
+  },
+  {
+    "id": "grid-demo", "name": "连通片区 · 合成样例", "version": "synthetic-2026-09-05-v2",
+    "source": "团队自建合成路网与设施，不对应真实社区或百度数据",
+    "columns": 13, "rows": 11, "spacing_m": 160, "center": "5,5",
+    "barrier_column": null, "crossing_rows": [],
+    "facilities": [
+      {"id": "medical-1", "name": "样例药店 A", "category": "医疗", "kind": "药店", "node": "2,6"},
+      {"id": "medical-2", "name": "样例卫生站 B", "category": "医疗", "kind": "卫生站", "node": "10,2"},
+      {"id": "care-1", "name": "样例养老站 A", "category": "养老", "kind": "养老站", "node": "1,4"},
+      {"id": "school-1", "name": "样例小学 A", "category": "教育", "kind": "小学", "node": "3,2"},
+      {"id": "school-2", "name": "样例幼儿园 B", "category": "教育", "kind": "幼儿园", "node": "10,8"},
+      {"id": "shop-1", "name": "样例菜市场 A", "category": "购物", "kind": "菜市场", "node": "2,8"},
+      {"id": "shop-2", "name": "样例超市 B", "category": "购物", "kind": "超市", "node": "9,4"}
+    ]
+  }
+]

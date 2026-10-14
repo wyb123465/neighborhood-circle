@@ -1,0 +1,39 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.txt -c constraints.txt
+      - name: Run Python tests
+        run: python -m pytest -q
+      - name: Syntax check the live verification script
+        run: python -m py_compile scripts/check_live.py
+      - name: Syntax check the live inspection backend
+        run: python -m py_compile backend/live_inspection.py
+      - name: Syntax check live API and route audit modules
+        run: python -m py_compile backend/live_api.py backend/route_audit.py scripts/route_audit.py
+      - name: Check frontend JavaScript
+        run: node --check app.js
+      - name: Check live frontend JavaScript
+        run: node --check live.js
+      - name: Run frontend state tests
+        run: node --test tests/*.test.cjs
+      - name: Check assistant JavaScript
+        run: node --check assistant.js && node --check assistant-state.js && node --check workspace-ui.js && node --check workspace-store.js && node --check home.js
+      - name: Verify synthetic ground truth without credentials
+        run: python scripts/verify_release.py
+      - name: Scan source for sensitive content
+        run: python scripts/security_scan.py
