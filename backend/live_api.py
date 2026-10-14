@@ -62,7 +62,9 @@ def status():
         effective_profile = None
         profile_error = str(error)
     return {
-        "mode": "live-replay" if replay else ("configuration-error" if replay_error else ("live-ready" if config.ak else "synthetic-only")),
+        "mode": "live-replay"
+        if replay
+        else ("configuration-error" if replay_error else ("live-ready" if config.ak else "synthetic-only")),
         "configured": replay_error is None and bool(config.ak or replay),
         "base_url": config.base_url,
         "place_api_version": config.place_api_version,
@@ -83,8 +85,15 @@ def status():
         "message": (
             replay_error or profile_error
             if replay_error or profile_error
-            else ("历史录制回放：无需 AK，不发起外部请求。" if replay else
-                ("已配置服务端 AK，可调用验证接口。" if config.ak else "未配置 BAIDU_MAP_AK，未发起百度地图请求。"))
+            else (
+                "历史录制回放：无需 AK，不发起外部请求。"
+                if replay
+                else (
+                    "已配置服务端 AK，可调用验证接口。"
+                    if config.ak
+                    else "未配置 BAIDU_MAP_AK，未发起百度地图请求。"
+                )
+            )
         ),
     }
 
@@ -188,7 +197,10 @@ def inspect(
     radius_m: Annotated[int, Query(ge=300, le=3000)] = 1500,
     minutes: Annotated[int, Query(ge=5, le=30)] = 15,
     max_facilities: Annotated[int, Query(ge=1, le=50)] = 30,
-    query_profile: str | None = Query(default=None, description=f"检索词组画像，默认 {DEFAULT_QUERY_PROFILE}；narrow 可降低地点检索配额消耗。"),
+    query_profile: str | None = Query(
+        default=None,
+        description=f"检索词组画像，默认 {DEFAULT_QUERY_PROFILE}；narrow 可降低地点检索配额消耗。",
+    ),
 ):
     if (lat is None) != (lng is None):
         raise HTTPException(status_code=400, detail="lat 与 lng 需同时提供。")
@@ -201,7 +213,9 @@ def inspect(
         raise HTTPException(status_code=400, detail=f"检索词组画像无效，支持：{'、'.join(QUERY_PROFILES)}。")
     try:
         maps = client(BaiduConfig.from_env())
-        converted = maps.convert_coordinates({"lat": lat, "lng": lng}, coord_type) if lat is not None else None
+        converted = (
+            maps.convert_coordinates({"lat": lat, "lng": lng}, coord_type) if lat is not None else None
+        )
         result = inspect_live(
             maps,
             address=address,

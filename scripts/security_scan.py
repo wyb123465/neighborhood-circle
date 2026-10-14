@@ -30,7 +30,22 @@ FORBIDDEN_PATHS = (".env", ".runtime", "fixtures.json", "route-audit-", "live-ve
 
 def tracked_files(repo: Path) -> list[str]:
     try:
-        out = subprocess.run(["git", "-C", str(repo), "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "."], capture_output=True, check=True)
+        out = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repo),
+                "ls-files",
+                "-z",
+                "--cached",
+                "--others",
+                "--exclude-standard",
+                "--",
+                ".",
+            ],
+            capture_output=True,
+            check=True,
+        )
         names = sorted(set(name for name in out.stdout.decode("utf-8").split("\0") if name))
         if names:
             return names
@@ -58,7 +73,12 @@ def scan(repo: Path) -> list[str]:
         lowered = rel.lower()
         basename = lowered.rsplit("/", 1)[-1]
         # .env.example 是公开的安全模板，不算违规；其余 .env/.runtime 产物一律拒绝。
-        if basename == ".env" or lowered.endswith("/.env") or ".runtime/" in lowered or basename == "fixtures.json":
+        if (
+            basename == ".env"
+            or lowered.endswith("/.env")
+            or ".runtime/" in lowered
+            or basename == "fixtures.json"
+        ):
             findings.append(f"[路径] {rel} 不应入库")
         try:
             text = path.read_text(encoding="utf-8")
@@ -66,13 +86,24 @@ def scan(repo: Path) -> list[str]:
             continue
         for match in AK_LIKE.finditer(text):
             token = match.group(0)
-            if token.isdigit() or token.lower() in {"e", "t"} or all(c in "0123456789abcdef" for c in token.lower()) and len(token) in {7, 8}:
+            if (
+                token.isdigit()
+                or token.lower() in {"e", "t"}
+                or all(c in "0123456789abcdef" for c in token.lower())
+                and len(token) in {7, 8}
+            ):
                 continue  # 纯数字、短哈希等常见误报
             # Government source URLs use 32-character document identifiers.
             # Restrict this exception to URL paths, never AK query parameters.
             if all(c in "0123456789abcdef" for c in token.lower()):
                 urls = re.finditer(r"https?://[^\s)]+", text)
-                if any(url.start() <= match.start() and match.end() <= url.end() and (urlparse(url.group()).hostname or "").endswith(".gov.cn") and token in urlparse(url.group()).path for url in urls):
+                if any(
+                    url.start() <= match.start()
+                    and match.end() <= url.end()
+                    and (urlparse(url.group()).hostname or "").endswith(".gov.cn")
+                    and token in urlparse(url.group()).path
+                    for url in urls
+                ):
                     continue
             line = text[: match.start()].count("\n") + 1
             findings.append(f"[疑似AK] {rel}:{line} 出现 32 位字母数字串 {token[:6]}…")

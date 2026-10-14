@@ -1,71 +1,206 @@
 <!doctype html>
 <html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f5f7f7">
-  <title>邻里圈 · 地图数据体检</title>
-  <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="assets/vendor/leaflet.css">
-  <link rel="stylesheet" href="styles.css?v=0.4.1">
-  <link rel="stylesheet" href="workspace.css">
-</head>
-<body>
-  <a class="skip" href="#workspace">跳转到工作区</a>
-  <header class="topbar ui-header">
-    <a class="brand" href="/live.html"><i data-lucide="radio-tower"></i><h1>邻里圈</h1><span id="liveModeName">地图数据体检</span></a>
-    <nav aria-label="模式切换"><a href="/">合成样例模式</a><a href="#workspace" id="liveNavCurrent">地图数据模式（当前）</a><a href="/assistant.html">智能助手</a></nav>
-  </header>
-  <main id="workspace">
-    <div class="heading-row"><div><span class="eyebrow">百度地图数据 / 网格采样等时圈</span><h2>生活圈体检</h2></div><span class="mode live" id="liveModeBadge" role="status">正在确认数据来源</span></div>
-    <p class="conclusion" id="liveSourceNote">连接服务后显示实时或历史回放模式。</p>
-    <form id="liveForm">
-      <fieldset id="liveConfig">
-        <div class="config-row">
-          <label class="grow">社区地址（完整到道路/门牌）<input id="address" type="text" minlength="2" maxlength="128" value="上海市长宁区愚园路"></label>
-          <label>城市（可选）<input id="city" type="text" maxlength="32" placeholder="如：上海市"></label>
-          <label>步行阈值（分钟）<input id="minutes" type="number" min="5" max="30" step="1" value="15" required></label>
-          <label>网格间距（米）<input id="gridM" type="number" min="100" max="500" step="25" value="200"></label>
-          <button class="button primary" type="submit" disabled><i data-lucide="satellite-dish"></i><span id="liveSubmitLabel">开始体检</span></button>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f5f7f7" />
+    <title>邻里圈 · 地图数据体检</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="assets/vendor/leaflet.css" />
+    <link rel="stylesheet" href="styles.css?v=0.4.1" />
+    <link rel="stylesheet" href="workspace.css" />
+  </head>
+  <body>
+    <a class="skip" href="#workspace">跳转到工作区</a>
+    <header class="topbar ui-header">
+      <a class="brand" href="/live.html"
+        ><i data-lucide="radio-tower"></i>
+        <h1>邻里圈</h1>
+        <span id="liveModeName">地图数据体检</span></a
+      >
+      <nav aria-label="模式切换">
+        <a href="/">合成样例模式</a><a href="#workspace" id="liveNavCurrent">地图数据模式（当前）</a
+        ><a href="/assistant.html">智能助手</a>
+      </nav>
+    </header>
+    <main id="workspace">
+      <div class="heading-row">
+        <div>
+          <span class="eyebrow">百度地图数据 / 网格采样等时圈</span>
+          <h2>生活圈体检</h2>
         </div>
-        <details id="coordinateOptions"><summary>使用中心坐标</summary><p class="quiet" id="coordinateHelp">填写一对坐标后优先使用坐标。选择原始来源，非 BD-09 通过百度官方接口转换；转换失败会停止体检。</p><div class="config-row"><label>坐标来源<select id="coordinateSystem"><option value="bd09ll">百度 BD-09</option><option value="gcj02ll">高德 / 腾讯 GCJ-02</option><option value="wgs84ll">GPS WGS84</option></select></label><label>纬度<input id="latitude" type="number" min="-85" max="85" step="any" aria-describedby="coordinateHelp"></label><label>经度<input id="longitude" type="number" min="-180" max="180" step="any" aria-describedby="coordinateHelp"></label></div></details>
-        <div class="filters-row"><span class="quiet" id="liveStatus" role="status">连接本地服务</span><span class="quiet" id="liveQuotaNote">正在读取配额配置</span></div>
-      </fieldset>
-    </form>
-    <div id="liveError" role="alert" hidden><span id="liveErrorText"></span><button id="liveRetry" class="button">重试</button></div>
-    <section id="liveResults" aria-label="地图数据体检结果" hidden>
-      <div class="metrics">
-        <div class="main-metric"><span>采样点可达比例</span><strong id="liveRatio">0<small>%</small></strong><span id="liveRatioNote">真实步行耗时口径</span></div>
-        <div><span>可达 / 已知</span><strong id="liveReachable">0</strong><span id="liveKnown"></span></div>
-        <div><span>未知采样点</span><strong id="liveUnknown">0</strong><span>接口失败不冒充结论</span></div>
-        <div><span>实测设施</span><strong id="liveFacilityCount">0</strong><span id="liveFacilityNote">中心到设施路线</span></div>
+        <span class="mode live" id="liveModeBadge" role="status">正在确认数据来源</span>
       </div>
-      <div class="analysis-grid">
-        <section class="map-workspace" aria-labelledby="liveMapHeading">
-          <div class="map-toolbar"><h3 id="liveMapHeading">等时圈采样网格</h3><div class="map-actions"><button id="liveFit" class="icon-button" title="适应地图范围" aria-label="适应地图范围"><i data-lucide="scan"></i></button><button id="liveZoomIn" class="icon-button" title="放大地图" aria-label="放大地图"><i data-lucide="plus"></i></button><button id="liveZoomOut" class="icon-button" title="缩小地图" aria-label="缩小地图"><i data-lucide="minus"></i></button></div></div>
-          <div id="liveMap" role="region" aria-label="等时圈采样网格地图"></div>
-          <div class="map-legend"><span><i class="legend-box reachable"></i>阈值内可达</span><span><i class="legend-box gap"></i>阈值外</span><span><i class="legend-box unknown"></i>未知</span><span><i class="legend-box service-gap"></i>专项服务缺口</span><span id="liveCenterLabel"></span></div>
-        </section>
-        <aside class="diagnosis" aria-labelledby="liveDiagnosisHeading">
-          <div class="section-title"><h3 id="liveDiagnosisHeading">采样结论</h3><span><button id="liveReport" class="icon-button" title="导出 Markdown 报告" aria-label="导出 Markdown 报告" disabled><i data-lucide="file-text"></i></button><button id="liveExport" class="icon-button" title="导出结果 JSON" aria-label="导出结果 JSON" disabled><i data-lucide="download"></i></button></span></div>
-          <p id="liveConclusion" class="conclusion"></p>
-          <div class="section-title"><h3>真实测时设施</h3></div>
-          <div class="table-scroll"><table><thead><tr><th>设施</th><th>类别</th><th>步行 / 分钟</th><th>阈值内</th></tr></thead><tbody id="liveFacilityRows"></tbody></table></div>
-          <div class="section-title blindspot-heading"><h3>1 公里专项盲区</h3><span class="quiet">直线距离 / 采样</span></div>
-          <p id="liveBlindSpotSummary" class="conclusion"></p>
-          <div id="liveBlindSpotRows" class="blindspot-list"></div>
-          <div class="section-title blindspot-heading"><h3>规划候选点</h3><span class="quiet">采样启发式</span></div>
-          <p id="livePlanSummary" class="conclusion"></p>
-          <div id="liveBlindSpotRecommendations" class="recommendation-list"></div>
-          <details class="km-details" open><summary>口径与警告 <span>来自接口</span></summary><ul id="liveWarnings" class="warn-list"></ul></details>
-        </aside>
+      <p class="conclusion" id="liveSourceNote">连接服务后显示实时或历史回放模式。</p>
+      <form id="liveForm">
+        <fieldset id="liveConfig">
+          <div class="config-row">
+            <label class="grow"
+              >社区地址（完整到道路/门牌）<input
+                id="address"
+                type="text"
+                minlength="2"
+                maxlength="128"
+                value="上海市长宁区愚园路"
+            /></label>
+            <label>城市（可选）<input id="city" type="text" maxlength="32" placeholder="如：上海市" /></label>
+            <label
+              >步行阈值（分钟）<input
+                id="minutes"
+                type="number"
+                min="5"
+                max="30"
+                step="1"
+                value="15"
+                required
+            /></label>
+            <label
+              >网格间距（米）<input id="gridM" type="number" min="100" max="500" step="25" value="200"
+            /></label>
+            <button class="button primary" type="submit" disabled>
+              <i data-lucide="satellite-dish"></i><span id="liveSubmitLabel">开始体检</span>
+            </button>
+          </div>
+          <details id="coordinateOptions">
+            <summary>使用中心坐标</summary>
+            <p class="quiet" id="coordinateHelp">
+              填写一对坐标后优先使用坐标。选择原始来源，非 BD-09 通过百度官方接口转换；转换失败会停止体检。
+            </p>
+            <div class="config-row">
+              <label
+                >坐标来源<select id="coordinateSystem">
+                  <option value="bd09ll">百度 BD-09</option>
+                  <option value="gcj02ll">高德 / 腾讯 GCJ-02</option>
+                  <option value="wgs84ll">GPS WGS84</option>
+                </select></label
+              ><label
+                >纬度<input
+                  id="latitude"
+                  type="number"
+                  min="-85"
+                  max="85"
+                  step="any"
+                  aria-describedby="coordinateHelp" /></label
+              ><label
+                >经度<input
+                  id="longitude"
+                  type="number"
+                  min="-180"
+                  max="180"
+                  step="any"
+                  aria-describedby="coordinateHelp"
+              /></label>
+            </div>
+          </details>
+          <div class="filters-row">
+            <span class="quiet" id="liveStatus" role="status">连接本地服务</span
+            ><span class="quiet" id="liveQuotaNote">正在读取配额配置</span>
+          </div>
+        </fieldset>
+      </form>
+      <div id="liveError" role="alert" hidden>
+        <span id="liveErrorText"></span><button id="liveRetry" class="button">重试</button>
       </div>
-      <div class="evidence-footer"><span id="liveEvidenceId"></span><span id="liveMethodNote">网格采样 · 批量算路 · 局部米制坐标</span></div>
-    </section>
-  </main>
-  <div class="toast" id="liveToast" role="status" hidden></div>
-  <script src="assets/vendor/leaflet.js"></script>
-  <script src="assets/vendor/lucide.min.js"></script>
-  <script src="live.js?v=0.4.1"></script>
-</body>
+      <section id="liveResults" aria-label="地图数据体检结果" hidden>
+        <div class="metrics">
+          <div class="main-metric">
+            <span>采样点可达比例</span><strong id="liveRatio">0<small>%</small></strong
+            ><span id="liveRatioNote">真实步行耗时口径</span>
+          </div>
+          <div><span>可达 / 已知</span><strong id="liveReachable">0</strong><span id="liveKnown"></span></div>
+          <div><span>未知采样点</span><strong id="liveUnknown">0</strong><span>接口失败不冒充结论</span></div>
+          <div>
+            <span>实测设施</span><strong id="liveFacilityCount">0</strong
+            ><span id="liveFacilityNote">中心到设施路线</span>
+          </div>
+        </div>
+        <div class="analysis-grid">
+          <section class="map-workspace" aria-labelledby="liveMapHeading">
+            <div class="map-toolbar">
+              <h3 id="liveMapHeading">等时圈采样网格</h3>
+              <div class="map-actions">
+                <button id="liveFit" class="icon-button" title="适应地图范围" aria-label="适应地图范围">
+                  <i data-lucide="scan"></i></button
+                ><button id="liveZoomIn" class="icon-button" title="放大地图" aria-label="放大地图">
+                  <i data-lucide="plus"></i></button
+                ><button id="liveZoomOut" class="icon-button" title="缩小地图" aria-label="缩小地图">
+                  <i data-lucide="minus"></i>
+                </button>
+              </div>
+            </div>
+            <div id="liveMap" role="region" aria-label="等时圈采样网格地图"></div>
+            <div class="map-legend">
+              <span><i class="legend-box reachable"></i>阈值内可达</span
+              ><span><i class="legend-box gap"></i>阈值外</span
+              ><span><i class="legend-box unknown"></i>未知</span
+              ><span><i class="legend-box service-gap"></i>专项服务缺口</span
+              ><span id="liveCenterLabel"></span>
+            </div>
+          </section>
+          <aside class="diagnosis" aria-labelledby="liveDiagnosisHeading">
+            <div class="section-title">
+              <h3 id="liveDiagnosisHeading">采样结论</h3>
+              <span
+                ><button
+                  id="liveReport"
+                  class="icon-button"
+                  title="导出 Markdown 报告"
+                  aria-label="导出 Markdown 报告"
+                  disabled
+                >
+                  <i data-lucide="file-text"></i></button
+                ><button
+                  id="liveExport"
+                  class="icon-button"
+                  title="导出结果 JSON"
+                  aria-label="导出结果 JSON"
+                  disabled
+                >
+                  <i data-lucide="download"></i></button
+              ></span>
+            </div>
+            <p id="liveConclusion" class="conclusion"></p>
+            <div class="section-title"><h3>真实测时设施</h3></div>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>设施</th>
+                    <th>类别</th>
+                    <th>步行 / 分钟</th>
+                    <th>阈值内</th>
+                  </tr>
+                </thead>
+                <tbody id="liveFacilityRows"></tbody>
+              </table>
+            </div>
+            <div class="section-title blindspot-heading">
+              <h3>1 公里专项盲区</h3>
+              <span class="quiet">直线距离 / 采样</span>
+            </div>
+            <p id="liveBlindSpotSummary" class="conclusion"></p>
+            <div id="liveBlindSpotRows" class="blindspot-list"></div>
+            <div class="section-title blindspot-heading">
+              <h3>规划候选点</h3>
+              <span class="quiet">采样启发式</span>
+            </div>
+            <p id="livePlanSummary" class="conclusion"></p>
+            <div id="liveBlindSpotRecommendations" class="recommendation-list"></div>
+            <details class="km-details" open>
+              <summary>口径与警告 <span>来自接口</span></summary>
+              <ul id="liveWarnings" class="warn-list"></ul>
+            </details>
+          </aside>
+        </div>
+        <div class="evidence-footer">
+          <span id="liveEvidenceId"></span><span id="liveMethodNote">网格采样 · 批量算路 · 局部米制坐标</span>
+        </div>
+      </section>
+    </main>
+    <div class="toast" id="liveToast" role="status" hidden></div>
+    <script src="assets/vendor/leaflet.js"></script>
+    <script src="assets/vendor/lucide.min.js"></script>
+    <script src="geo-map.js"></script>
+    <script src="live.js?v=0.7.0"></script>
+  </body>
 </html>

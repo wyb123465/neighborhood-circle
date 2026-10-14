@@ -11,4 +11,3 @@ def load_communities() -> dict[str, dict[str, Any]]:
     with DATA_PATH.open(encoding="utf-8") as source:
         items = json.load(source)
     return {item["id"]: item for item in items}
-

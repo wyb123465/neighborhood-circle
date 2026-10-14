@@ -1,0 +1,28 @@
+name: 缺陷反馈
+description: 报告可以复现的功能或显示问题
+title: "[缺陷] "
+body:
+  - type: markdown
+    attributes:
+      value: "请勿填写密钥、手机号、.env 内容或原始接口响应。安全漏洞请走 Security 私密入口。"
+  - type: input
+    id: version
+    attributes:
+      label: 版本与运行环境
+      placeholder: 例如 0.7.0 / Windows / Chrome
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: 数据模式
+      options: [合成, 当前百度数据, 历史回放, 不确定]
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤、预期和实际结果
+      description: 地图问题请注明公开样区、坐标来源和数据日期。
+    validations:
+      required: true

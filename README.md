@@ -2,11 +2,11 @@
 
 **走得到，才算生活圈。** 面向街道与社区调研的15分钟生活圈智能体检与规划助手。
 
-[![CI](https://github.com/wyb123465/neighborhood-circle/actions/workflows/ci.yml/badge.svg)](https://github.com/wyb123465/neighborhood-circle/actions/workflows/ci.yml) · [MIT](LICENSE) · [AI接入](docs/ai-integration.md) · [验收记录](docs/acceptance-v0.6.md)
+[![CI](https://github.com/wyb123465/neighborhood-circle/actions/workflows/ci.yml/badge.svg)](https://github.com/wyb123465/neighborhood-circle/actions/workflows/ci.yml) · [MIT](LICENSE) · [AI接入](docs/ai-integration.md) · [验收记录](docs/acceptance-v0.7.md)
 
 自然语言提出问题，模型选择受约束的工具；路网、服务覆盖、候选增益与证据由程序计算。合成、历史回放和当前百度数据分别标明，未知不会冒充确定缺口。
 
-![邻里圈分析工作台（合成案例）](assets/screenshots/workspace-v06.png)
+![邻里圈分析工作台（合成案例）](assets/screenshots/workspace-v07.png)
 
 ## 本地启动
 
@@ -37,7 +37,7 @@ Linux/macOS对应 `bash start.sh assistant 8000 synthetic` / `bash start.sh assi
 
 历史回放需要本机私有录制文件，未随公开仓库分发。`assistant -MapMode replay` 会保留录制时点，不能当作当前地图状态。
 
-## v0.6 能做什么
+## v0.7 能做什么
 
 - 统一项目首页和分析工作台：主要指标、地图、结论与候选并排；完成后的步骤可展开。
 - 实际模型工具调用、信息不足追问、同条件证据复用、候选重算、停止和重试。
@@ -46,7 +46,7 @@ Linux/macOS对应 `bash start.sh assistant 8000 synthetic` / `bash start.sh assi
 - 本机体检快照与核验备注：保留来源、日期及原始结果，加载快照后重新体检才能继续AI追问。
 - 摘要打印预览、A4打印入口及Markdown报告；原有页面继续支持JSON导出。
 
-真实道路底图尚未嵌入；当前真实图是BD-09坐标转成局部米制的样点示意。已提供官方地图核对入口。浏览器端底图需要单独配置网页端AK。
+新增百度道路地图接入：单独配置浏览器端 `BAIDU_BROWSER_AK` 后，真实测时网格、设施和灰色缺口可叠加到 BD-09 地理地图。服务端 AK 不会交给浏览器；未配置或载入失败时保留测时示意。见 [网页地图配置](docs/browser-map.md)。底图真实验收状态见当前验收记录，不把代码测试当作 SDK 联调。
 
 ## 可复现案例与边界
 
@@ -72,5 +72,7 @@ node --test tests/*.test.cjs
 本仓库为“邻里圈”独立项目。`.env`、私有响应、虚拟环境和本地产物不进入仓库；服务端AK与模型密钥不进入浏览器。上游组件许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 参赛材料与填写模板见 [报名提交说明](docs/submission-guide.md)。团队署名、公开视频链接和最终报名提交由团队填写与完成；现场出入口、POI营业状态及非开发者试用仍需补充。
+
+参与贡献：[CONTRIBUTING](CONTRIBUTING.md) · [维护机制](GOVERNANCE.md) · [安全反馈](SECURITY.md)。
 
 版本与历史：[CHANGELOG](CHANGELOG.md) · [v0.5验收](docs/acceptance-v0.5.md) · [历史复现说明](docs/history-readme-v0.5.md)。

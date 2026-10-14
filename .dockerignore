@@ -7,3 +7,7 @@ __pycache__
 .pytest_cache
 output
 *.pdf
+
+node_modules
+
+.ruff_cache

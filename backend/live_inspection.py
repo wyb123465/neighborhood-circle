@@ -43,12 +43,29 @@ def subtype_matches(item: dict[str, Any], query: str) -> bool:
     name = (item.get("name") or "").lower()
     tag = str((item.get("detail_info") or {}).get("tag") or "")
     if query == "小学":
-        return not any(token in name for token in ("vipkid", "美国小学", "培训", "辅导", "托管", "英语", "停车场", "体育馆", "游泳馆")) and "培训机构" not in tag
+        return (
+            not any(
+                token in name
+                for token in (
+                    "vipkid",
+                    "美国小学",
+                    "培训",
+                    "辅导",
+                    "托管",
+                    "英语",
+                    "停车场",
+                    "体育馆",
+                    "游泳馆",
+                )
+            )
+            and "培训机构" not in tag
+        )
     if query == "药店":
         return not any(token in name for token in ("宠物", "兽药", "药监", "医药公司"))
     if query == "菜市场":
         return not any(token in name for token in ("监督管理", "管理所", "管理办公室"))
     return True
+
 
 # 旧引用兼容：等价于 full 画像。
 CATEGORY_QUERIES = QUERY_PROFILES[DEFAULT_QUERY_PROFILE]
@@ -68,11 +85,29 @@ def queries_per_category(profile: str | None = None) -> dict[str, int]:
     return {category: len(queries) for category, queries in resolved.items()}
 
 
-def balanced_selection(facilities: list[dict[str, Any]], categories: list[str], limit: int, center: dict[str, float] | None = None) -> list[dict[str, Any]]:
+def balanced_selection(
+    facilities: list[dict[str, Any]],
+    categories: list[str],
+    limit: int,
+    center: dict[str, float] | None = None,
+) -> list[dict[str, Any]]:
     buckets = {
         category: sorted(
-            (facility for facility in facilities if category in (facility.get("eligible_categories", facility["categories"]) if center else facility["categories"])),
-            key=lambda facility: ((_distance_m(center, facility["location"], center["lat"]) if center else 0), facility.get("name") or "", facility["identity"]),
+            (
+                facility
+                for facility in facilities
+                if category
+                in (
+                    facility.get("eligible_categories", facility["categories"])
+                    if center
+                    else facility["categories"]
+                )
+            ),
+            key=lambda facility: (
+                (_distance_m(center, facility["location"], center["lat"]) if center else 0),
+                facility.get("name") or "",
+                facility["identity"],
+            ),
         )
         for category in categories
     }
@@ -126,10 +161,7 @@ def _build_blind_spot_recommendations(
     for kind in BLIND_SPOT_KINDS:
         if kind_rows[kind]["status"] == "unknown":
             continue
-        gap_points = [
-            point for point in point_rows
-            if kind in point["missing_kinds"]
-        ]
+        gap_points = [point for point in point_rows if kind in point["missing_kinds"]]
         remaining = set(range(len(gap_points)))
         for rank in range(1, limit_per_kind + 1):
             if not remaining:
@@ -143,7 +175,8 @@ def _build_blind_spot_recommendations(
                     if math.hypot(
                         candidate["dx_m"] - gap_points[index]["dx_m"],
                         candidate["dy_m"] - gap_points[index]["dy_m"],
-                    ) <= radius_m
+                    )
+                    <= radius_m
                 }
                 if len(covered) > len(best_covered):
                     best_index = candidate_index
@@ -186,12 +219,7 @@ def build_blind_spots(
     isochrones. A failed POI query is unknown, never a confirmed gap.
     """
     axis = range(-radius_m, radius_m + 1, grid_m)
-    points = [
-        {"dx_m": dx, "dy_m": dy}
-        for dy in axis
-        for dx in axis
-        if math.hypot(dx, dy) <= radius_m
-    ]
+    points = [{"dx_m": dx, "dy_m": dy} for dy in axis for dx in axis if math.hypot(dx, dy) <= radius_m]
     source_by_kind = {
         kind: [facility["location"] for facility in facilities if kind in facility.get("matched_kinds", [])]
         for kind in BLIND_SPOT_KINDS
@@ -199,7 +227,9 @@ def build_blind_spots(
     # Absence requires both a complete result set and a search disk that
     # contains the sample's entire service disk. A found nearby POI can still
     # prove coverage when other results are missing.
-    evidence = query_evidence or {kind: {"complete": True, "radius_m": radius_m * 2} for kind in BLIND_SPOT_KINDS}
+    evidence = query_evidence or {
+        kind: {"complete": True, "radius_m": radius_m * 2} for kind in BLIND_SPOT_KINDS
+    }
     reasons: dict[str, set[str]] = {kind: set() for kind in BLIND_SPOT_KINDS}
     point_rows = []
     for point in points:
@@ -208,7 +238,9 @@ def build_blind_spots(
         unknown: list[str] = []
         for kind in BLIND_SPOT_KINDS:
             if not query_success.get(kind, False) or not source_by_kind[kind]:
-                reasons[kind].add("检索未完成" if not query_success.get(kind, False) else "检索完成但未返回匹配 POI")
+                reasons[kind].add(
+                    "检索未完成" if not query_success.get(kind, False) else "检索完成但未返回匹配 POI"
+                )
                 unknown.append(kind)
                 continue
             nearest = min(
@@ -304,7 +336,11 @@ def inspect_live(
     if maps.replay_mode and query_profile is None:
         query_profile = (maps.replay_metadata or {}).get("query_profile")
     profile_name, profile = resolve_query_profile(query_profile)
-    geocoded = maps.geocode(address, city) if center_location is None else {"location": center_location, "source": "user-bd09ll", "address": address, "city": city}
+    geocoded = (
+        maps.geocode(address, city)
+        if center_location is None
+        else {"location": center_location, "source": "user-bd09ll", "address": address, "city": city}
+    )
     center = geocoded["location"]
     facilities: dict[str, dict[str, Any]] = {}
     warnings: list[str] = []
@@ -328,7 +364,9 @@ def inspect_live(
                 # and mark uncovered edge samples unknown instead of inventing
                 # missing requests or treating their smaller disk as complete.
                 search_radius = maps.recorded_search_radius(query, search_radius)
-            items = maps.search_pois(location=center, query=query, radius_m=search_radius, city_limit=bool(city))
+            items = maps.search_pois(
+                location=center, query=query, radius_m=search_radius, city_limit=bool(city)
+            )
             return category, query, items, None
         except BaiduApiError as error:
             return category, query, None, error
@@ -355,7 +393,11 @@ def inspect_live(
             if uid in facilities:
                 if query not in facilities[uid]["matched_queries"]:
                     facilities[uid]["matched_queries"].append(query)
-                if query in BLIND_SPOT_KINDS and subtype_matches(item, query) and query not in facilities[uid]["matched_kinds"]:
+                if (
+                    query in BLIND_SPOT_KINDS
+                    and subtype_matches(item, query)
+                    and query not in facilities[uid]["matched_kinds"]
+                ):
                     facilities[uid]["matched_kinds"].append(query)
                 if category not in facilities[uid]["categories"]:
                     facilities[uid]["categories"].append(category)
@@ -368,17 +410,30 @@ def inspect_live(
                 "categories": [category],
                 "eligible_categories": [category] if subtype_matches(item, query) else [],
                 "matched_queries": [query],
-                "matched_kinds": [query] if query in BLIND_SPOT_KINDS and subtype_matches(item, query) else [],
-                "classification_note": "检索词命中，子类待人工核验" if subtype_matches(item, query) else "子类排除规则命中，不参与专项覆盖",
+                "matched_kinds": [query]
+                if query in BLIND_SPOT_KINDS and subtype_matches(item, query)
+                else [],
+                "classification_note": "检索词命中，子类待人工核验"
+                if subtype_matches(item, query)
+                else "子类排除规则命中，不参与专项覆盖",
                 "classification_source": "query-rules",
             }
     poi_phase_ms = (time.perf_counter() - started_poi) * 1000
 
-    legacy_selection = maps.replay_mode and (maps.replay_metadata or {}).get("selection_strategy") != "nearest"
+    legacy_selection = (
+        maps.replay_mode and (maps.replay_metadata or {}).get("selection_strategy") != "nearest"
+    )
     eligible = [f for f in facilities.values() if f["eligible_categories"]]
-    ordered = balanced_selection(list(facilities.values()) if legacy_selection else eligible, categories, max_facilities, None if legacy_selection else center)
+    ordered = balanced_selection(
+        list(facilities.values()) if legacy_selection else eligible,
+        categories,
+        max_facilities,
+        None if legacy_selection else center,
+    )
     if legacy_selection:
-        warnings.append("该历史录制按类别与名称选样；新查询按类别兼顾近处设施，不能把旧样例视为新版近处设施清单。")
+        warnings.append(
+            "该历史录制按类别与名称选样；新查询按类别兼顾近处设施，不能把旧样例视为新版近处设施清单。"
+        )
     category_totals: dict[str, dict[str, int]] = defaultdict(
         lambda: {"total": 0, "reachable": 0, "route_errors": 0, "query_errors": 0}
     )
@@ -408,7 +463,9 @@ def inspect_live(
 
     def fetch_route_individually(facility: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         try:
-            route = maps.walking_route(origin=center, destination=facility["location"], destination_uid=facility.get("uid"))
+            route = maps.walking_route(
+                origin=center, destination=facility["location"], destination_uid=facility.get("uid")
+            )
             duration_s = route.get("duration_s")
             if duration_s is None:
                 return facility, {
@@ -433,7 +490,9 @@ def inspect_live(
     route_mode = "batch"
     if ordered:
         try:
-            matrix_rows = maps.walking_route_matrix(origin=center, destinations=[f["location"] for f in ordered])
+            matrix_rows = maps.walking_route_matrix(
+                origin=center, destinations=[f["location"] for f in ordered]
+            )
             if len(matrix_rows) != len(ordered):
                 raise BaiduApiError("批量算路返回行数与设施数量不一致，无法按序对齐。")
             route_rows = {f["identity"]: route_row_to_evidence(row) for f, row in zip(ordered, matrix_rows)}
@@ -470,22 +529,30 @@ def inspect_live(
             "unknown": totals["route_errors"],
             "unreachable": known - totals["reachable"],
             "unassessed": retrieved - totals["total"],
-            "excluded": sum(category in f["categories"] and category not in f["eligible_categories"] for f in facilities.values()),
+            "excluded": sum(
+                category in f["categories"] and category not in f["eligible_categories"]
+                for f in facilities.values()
+            ),
             "center_to_facility_rate": round(totals["reachable"] / known * 100, 1) if known else None,
-            "status": "partial" if totals["query_errors"] or totals["route_errors"] else ("empty" if not totals["total"] else "complete"),
+            "status": "partial"
+            if totals["query_errors"] or totals["route_errors"]
+            else ("empty" if not totals["total"] else "complete"),
         }
 
     if len(ordered) >= max_facilities:
         warnings.append(f"设施结果已截断为 {max_facilities} 条，不能视为完整 POI 清单。")
     warnings.append("当前结果是中心点到设施的路线证据，不是居民人口覆盖率。")
     if maps.replay_mode:
-        warnings.append(f"历史录制回放：数据录制于 {(maps.replay_metadata or {}).get('recorded_at') or '未知时间'}，本次没有实时请求。")
+        warnings.append(
+            f"历史录制回放：数据录制于 {(maps.replay_metadata or {}).get('recorded_at') or '未知时间'}，本次没有实时请求。"
+        )
     warnings.append("真实模式不输出居民人口覆盖率、连续灰色区域或候选建设方案。")
-    warnings.append("POI 类别来自检索词规则；培训、托管等明显非小学结果排除出专项覆盖，剩余类别仍需人工核验。")
+    warnings.append(
+        "POI 类别来自检索词规则；培训、托管等明显非小学结果排除出专项覆盖，剩余类别仍需人工核验。"
+    )
     query_success = {
         kind: any(
-            kind in profile[category] and (category, kind) not in query_failures
-            for category in categories
+            kind in profile[category] and (category, kind) not in query_failures for category in categories
         )
         for kind in BLIND_SPOT_KINDS
     }
@@ -493,16 +560,35 @@ def inspect_live(
         center=center,
         facilities=list(facilities.values()),
         query_success=query_success,
-        query_evidence={kind: {"radius_m": getattr(fetched.get((category, kind)), "radius_m", 0), "complete": getattr(fetched.get((category, kind)), "complete", False)} for category in categories for kind in BLIND_SPOT_KINDS if kind in profile[category]},
+        query_evidence={
+            kind: {
+                "radius_m": getattr(fetched.get((category, kind)), "radius_m", 0),
+                "complete": getattr(fetched.get((category, kind)), "complete", False),
+            }
+            for category in categories
+            for kind in BLIND_SPOT_KINDS
+            if kind in profile[category]
+        },
     )
     if any(row["status"] != "complete" for row in blind_spots["kinds"].values()):
         warnings.append("1 公里专项检查存在未知样点，未知不计入缺口。")
     route_errors = sum(facility["route"]["status"] == "error" for facility in ordered)
-    evidence_id = hashlib.sha256(json.dumps({
-        "method": "live-inspection-v2", "center": center,
-        "categories": categories, "minutes": minutes, "radius_m": radius_m,
-        "profile": profile_name, "facilities": ordered, "blind_spots": blind_spots,
-    }, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16]
+    evidence_id = hashlib.sha256(
+        json.dumps(
+            {
+                "method": "live-inspection-v2",
+                "center": center,
+                "categories": categories,
+                "minutes": minutes,
+                "radius_m": radius_m,
+                "profile": profile_name,
+                "facilities": ordered,
+                "blind_spots": blind_spots,
+            },
+            sort_keys=True,
+            ensure_ascii=False,
+        ).encode()
+    ).hexdigest()[:16]
     return {
         "method_version": "live-inspection-v2",
         "evidence_id": evidence_id,
@@ -542,7 +628,8 @@ def inspect_live(
         },
         "warnings": warnings,
         "source": (
-            geocoded["source"] + " + baidu-place-configured + "
+            geocoded["source"]
+            + " + baidu-place-configured + "
             + ("baidu-routematrix-v2-walking" if route_mode == "batch" else "baidu-direction-v2-walking")
         ),
     }

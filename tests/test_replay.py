@@ -11,7 +11,9 @@ from backend.baidu import BaiduApiError, BaiduConfig, BaiduMapsClient, Recording
 def handler(recorder: list[str]):
     def handle(request: httpx.Request) -> httpx.Response:
         recorder.append(request.url.path)
-        return httpx.Response(200, json={"status": 0, "result": {"location": {"lng": 121.4, "lat": 31.2}, "level": "道路"}})
+        return httpx.Response(
+            200, json={"status": 0, "result": {"location": {"lng": 121.4, "lat": 31.2}, "level": "道路"}}
+        )
 
     return handle
 

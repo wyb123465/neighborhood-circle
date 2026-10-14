@@ -99,7 +99,13 @@ def test_one_km_subtypes_and_distances():
 
 
 def test_report_recomputes_the_same_evidence():
-    parameters = {"community_id": "grid-demo", "category": "医疗,养老", "minutes": 20, "speed": 50, "center": "3,3"}
+    parameters = {
+        "community_id": "grid-demo",
+        "category": "医疗,养老",
+        "minutes": 20,
+        "speed": 50,
+        "center": "3,3",
+    }
     response = client.post("/api/report", json=parameters)
     assert response.status_code == 200
     expected = inspect(load_communities()["grid-demo"], ["医疗", "养老"], minutes=20, speed=50, center="3,3")
@@ -131,7 +137,18 @@ def test_report_marks_simulation_state_and_missing_categories():
     assert "养老" in missing
 
 
-@pytest.mark.parametrize("params,code", [({"category": "其他"}, 400), ({"minutes": 0}, 422), ({"speed": 101}, 422), ({"minutes": 15.5}, 422), ({"center": "100,100"}, 400), ({"addition_node": "1,1"}, 400), ({"category": "养老", "addition_node": "1,1", "addition_category": "医疗"}, 400)])
+@pytest.mark.parametrize(
+    "params,code",
+    [
+        ({"category": "其他"}, 400),
+        ({"minutes": 0}, 422),
+        ({"speed": 101}, 422),
+        ({"minutes": 15.5}, 422),
+        ({"center": "100,100"}, 400),
+        ({"addition_node": "1,1"}, 400),
+        ({"category": "养老", "addition_node": "1,1", "addition_category": "医疗"}, 400),
+    ],
+)
 def test_invalid_parameters(params, code):
     assert client.get("/api/communities/bridge-demo/inspection", params=params).status_code == code
 
@@ -164,7 +181,17 @@ def test_agent_explanation_never_invents_metrics(monkeypatch):
     assert str(body["combined_coverage_pct"]) in text
 
 
-@pytest.mark.parametrize("path", ["/.env", "/.git/config", "/backend/main.py", "/data/sample_communities.json", "/requirements.txt", "/api/communities/unknown/inspection"])
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/.env",
+        "/.git/config",
+        "/backend/main.py",
+        "/data/sample_communities.json",
+        "/requirements.txt",
+        "/api/communities/unknown/inspection",
+    ],
+)
 def test_private_or_unknown_paths_are_not_served(path):
     assert client.get(path).status_code == 404
 
@@ -175,7 +202,16 @@ def test_map_bitmap_and_public_assets():
     image = Image.open(BytesIO(response.content)).convert("RGB")
     assert image.size == (2080, 1760)
     assert len(image.getcolors(image.width * image.height)) >= 5
-    for asset in ["/", "/app.js", "/styles.css", "/live", "/live.html", "/live.js", "/assets/vendor/leaflet.js", "/assets/vendor/lucide.min.js"]:
+    for asset in [
+        "/",
+        "/app.js",
+        "/styles.css",
+        "/live",
+        "/live.html",
+        "/live.js",
+        "/assets/vendor/leaflet.js",
+        "/assets/vendor/lucide.min.js",
+    ]:
         assert client.get(asset).status_code == 200
 
 
@@ -226,7 +262,9 @@ def test_live_status_exposes_invalid_configured_query_profile(monkeypatch):
 def test_live_inspect_rejects_unknown_query_profile(monkeypatch):
     # 故意不配置 AK：画像校验必须先于建客户端，否则会发真实外部请求。
     monkeypatch.delenv("BAIDU_MAP_AK", raising=False)
-    response = client.get("/api/live/inspect", params={"address": "上海市长宁区愚园路", "query_profile": "turbo"})
+    response = client.get(
+        "/api/live/inspect", params={"address": "上海市长宁区愚园路", "query_profile": "turbo"}
+    )
 
     assert response.status_code == 400
     assert "画像无效" in response.json()["detail"]
@@ -234,7 +272,9 @@ def test_live_inspect_rejects_unknown_query_profile(monkeypatch):
 
 def test_rounded_walk_minutes_do_not_decide_reachability():
     boundary = deepcopy(spec)
-    boundary["facilities"] = [{"id": "boundary", "name": "Boundary", "category": "养老", "kind": "养老站", "node": "1,1"}]
+    boundary["facilities"] = [
+        {"id": "boundary", "name": "Boundary", "category": "养老", "kind": "养老站", "node": "1,1"}
+    ]
     result = inspect(boundary, ["养老"], minutes=18, speed=71)
     facility = result["facilities"][0]
     assert facility["walk_minutes"] == 18.0

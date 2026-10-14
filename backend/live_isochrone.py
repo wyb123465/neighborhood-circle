@@ -60,7 +60,9 @@ def _apply_row(point: dict[str, Any], row: dict[str, Any], threshold_s: float) -
     point["near_threshold"] = abs(duration_s - threshold_s) <= 120
 
 
-def _boundary_anchors(points: list[dict[str, Any]], spacing: float, threshold_s: float) -> list[dict[str, Any]]:
+def _boundary_anchors(
+    points: list[dict[str, Any]], spacing: float, threshold_s: float
+) -> list[dict[str, Any]]:
     """四邻域中同时出现可达与不可达的粗网格点，即穿越边界的锚点；
     按耗时与阈值的距离排序，最不确定的先加密。"""
     by_key = {(round(p["dx_m"]), round(p["dy_m"])): p for p in points}
@@ -128,7 +130,7 @@ def build_isochrone(
         sub_spacing = spacing / REFINEMENT_SUBDIVISIONS
         used_keys = {(p["dx_m"], p["dy_m"]) for p in points}
         for anchor in anchors:
-            if len(refined_points) + (REFINEMENT_SUBDIVISIONS ** 2 - 1) > REFINEMENT_BUDGET:
+            if len(refined_points) + (REFINEMENT_SUBDIVISIONS**2 - 1) > REFINEMENT_BUDGET:
                 break
             for i in range(-1, 2):
                 for j in range(-1, 2):
@@ -149,11 +151,20 @@ def build_isochrone(
             points = points + refined_points
 
     # A result identifier must also change when the route evidence changes.
-    evidence_id = hashlib.sha256(json.dumps({
-        "method": METHOD_VERSION, "center": center, "minutes": minutes,
-        "spacing": spacing, "refine": refine,
-        "points": [{k: p.get(k) for k in ("dx_m", "dy_m", "status", "duration_s")} for p in points],
-    }, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16]
+    evidence_id = hashlib.sha256(
+        json.dumps(
+            {
+                "method": METHOD_VERSION,
+                "center": center,
+                "minutes": minutes,
+                "spacing": spacing,
+                "refine": refine,
+                "points": [{k: p.get(k) for k in ("dx_m", "dy_m", "status", "duration_s")} for p in points],
+            },
+            sort_keys=True,
+            ensure_ascii=False,
+        ).encode()
+    ).hexdigest()[:16]
 
     known = sum(1 for p in points if p["status"] != "unknown")
     reachable = sum(1 for p in points if p["status"] == "reachable")
@@ -188,7 +199,11 @@ def build_isochrone(
             "review_margin_minutes": 2,
             "reachable_ratio_pct": round(reachable / known * 100, 1) if known else None,
             "coarse_ratio_pct": round(coarse_reachable / coarse_known * 100, 1) if coarse_known else None,
-            "coarse": {"count": len(points) - len(refined_points), "known": coarse_known, "reachable": coarse_reachable},
+            "coarse": {
+                "count": len(points) - len(refined_points),
+                "known": coarse_known,
+                "reachable": coarse_reachable,
+            },
             "refined": {"count": len(refined_points), "known": refined_known, "reachable": refined_reachable},
         },
         "performance": {
@@ -198,9 +213,19 @@ def build_isochrone(
         },
         "warnings": [
             "耗时距阈值不超过 2 分钟的样点标记为近阈值待复核；仍保留原始接口判别。单条路线、批量测时与网页版结果可能不同。该范围为复核策略，不是误差置信区间。",
-            *([f"历史录制回放：数据录制于 {(maps.replay_metadata or {}).get('recorded_at') or '未知时间'}，本次没有实时请求。"] if maps.replay_mode else []),
+            *(
+                [
+                    f"历史录制回放：数据录制于 {(maps.replay_metadata or {}).get('recorded_at') or '未知时间'}，本次没有实时请求。"
+                ]
+                if maps.replay_mode
+                else []
+            ),
             f"网格采样是近似等时圈：粗网格间距 {spacing:.0f} 米"
-            + (f"，边界附近已加密至 {spacing / REFINEMENT_SUBDIVISIONS:.0f} 米（{len(refined_points)} 个加密点）" if refined_points else "")
+            + (
+                f"，边界附近已加密至 {spacing / REFINEMENT_SUBDIVISIONS:.0f} 米（{len(refined_points)} 个加密点）"
+                if refined_points
+                else ""
+            )
             + "，仍有同量级的判别误差。",
             "采样点各自独立测时，不表达河道、围墙等障碍物造成的连通性孔洞；相邻点可达性可以突变。",
             "经纬度到米为当地平面近似（等距圆柱投影），社区尺度下误差可忽略，但不适用于跨越大范围的项目。",

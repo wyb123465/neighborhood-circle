@@ -13,7 +13,9 @@ from backend.live_inspection import CATEGORY_QUERIES, inspect_live
 def test_live_partial_pipeline_deduplicates_facilities_and_keeps_route_evidence():
     def handler(request: httpx.Request):
         if request.url.path == "/geocoding/v3/":
-            return httpx.Response(200, json={"status": 0, "result": {"location": {"lng": 121.4, "lat": 31.2}, "precise": 1}})
+            return httpx.Response(
+                200, json={"status": 0, "result": {"location": {"lng": 121.4, "lat": 31.2}, "precise": 1}}
+            )
         if request.url.path == "/place/v3/around":
             query = request.url.params["query"]
             return httpx.Response(
@@ -21,8 +23,18 @@ def test_live_partial_pipeline_deduplicates_facilities_and_keeps_route_evidence(
                 json={
                     "status": 0,
                     "results": [
-                        {"uid": "shared", "name": f"{query}共享设施", "address": "甲路", "location": {"lng": 121.41, "lat": 31.21}},
-                        {"uid": query, "name": f"{query}独有设施", "address": "乙路", "location": {"lng": 121.42, "lat": 31.22}},
+                        {
+                            "uid": "shared",
+                            "name": f"{query}共享设施",
+                            "address": "甲路",
+                            "location": {"lng": 121.41, "lat": 31.21},
+                        },
+                        {
+                            "uid": query,
+                            "name": f"{query}独有设施",
+                            "address": "乙路",
+                            "location": {"lng": 121.42, "lat": 31.22},
+                        },
                     ],
                 },
             )
@@ -33,7 +45,10 @@ def test_live_partial_pipeline_deduplicates_facilities_and_keeps_route_evidence(
             )
         if request.url.path == "/routematrix/v2/walking":
             count = len(request.url.params["destinations"].split("|"))
-            rows = [{"distance": {"value": 500, "text": "500米"}, "duration": {"value": 600, "text": "10分钟"}} for _ in range(count)]
+            rows = [
+                {"distance": {"value": 500, "text": "500米"}, "duration": {"value": 600, "text": "10分钟"}}
+                for _ in range(count)
+            ]
             return httpx.Response(200, json={"status": 0, "result": rows})
         raise AssertionError(request.url.path)
 
@@ -64,17 +79,24 @@ def test_live_partial_pipeline_deduplicates_facilities_and_keeps_route_evidence(
 def test_live_partial_pipeline_surfaces_route_failure_without_fabricating_reachability():
     def handler(request: httpx.Request):
         if request.url.path == "/geocoding/v3/":
-            return httpx.Response(200, json={"status": 0, "result": {"location": {"lng": 121.4, "lat": 31.2}}})
+            return httpx.Response(
+                200, json={"status": 0, "result": {"location": {"lng": 121.4, "lat": 31.2}}}
+            )
         if request.url.path == "/place/v3/around":
             return httpx.Response(
                 200,
-                json={"status": 0, "results": [{"uid": "one", "name": "设施", "location": {"lng": 121.41, "lat": 31.21}}]},
+                json={
+                    "status": 0,
+                    "results": [{"uid": "one", "name": "设施", "location": {"lng": 121.41, "lat": 31.21}}],
+                },
             )
         if request.url.path in ("/direction/v2/walking", "/routematrix/v2/walking"):
             return httpx.Response(200, json={"status": 302, "message": "quota"})
         raise AssertionError(request.url.path)
 
-    maps = BaiduMapsClient(BaiduConfig(ak="test", max_place_pages=1, qps=1000), transport=httpx.MockTransport(handler))
+    maps = BaiduMapsClient(
+        BaiduConfig(ak="test", max_place_pages=1, qps=1000), transport=httpx.MockTransport(handler)
+    )
     result = inspect_live(
         maps,
         address="样例地址",
@@ -95,22 +117,32 @@ def test_live_partial_pipeline_surfaces_route_failure_without_fabricating_reacha
 def test_live_partial_pipeline_marks_missing_matrix_duration_as_route_error():
     def handler(request: httpx.Request):
         if request.url.path == "/geocoding/v3/":
-            return httpx.Response(200, json={"status": 0, "result": {"location": {"lng": 121.4, "lat": 31.2}}})
+            return httpx.Response(
+                200, json={"status": 0, "result": {"location": {"lng": 121.4, "lat": 31.2}}}
+            )
         if request.url.path == "/place/v3/around":
             return httpx.Response(
                 200,
-                json={"status": 0, "results": [{"uid": "one", "name": "设施", "location": {"lng": 121.41, "lat": 31.21}}]},
+                json={
+                    "status": 0,
+                    "results": [{"uid": "one", "name": "设施", "location": {"lng": 121.41, "lat": 31.21}}],
+                },
             )
         if request.url.path == "/routematrix/v2/walking":
             return httpx.Response(
                 200,
-                json={"status": 0, "result": [{"distance": {"value": 500, "text": "500米"}, "duration": None}]},
+                json={
+                    "status": 0,
+                    "result": [{"distance": {"value": 500, "text": "500米"}, "duration": None}],
+                },
             )
         if request.url.path == "/direction/v2/walking":
             return httpx.Response(200, json={"status": 302, "message": "quota"})
         raise AssertionError(request.url.path)
 
-    maps = BaiduMapsClient(BaiduConfig(ak="test", max_place_pages=1, qps=1000), transport=httpx.MockTransport(handler))
+    maps = BaiduMapsClient(
+        BaiduConfig(ak="test", max_place_pages=1, qps=1000), transport=httpx.MockTransport(handler)
+    )
     result = inspect_live(
         maps,
         address="样例地址",
@@ -129,11 +161,16 @@ def test_live_partial_pipeline_marks_missing_matrix_duration_as_route_error():
 def test_live_partial_pipeline_marks_missing_individual_duration_as_route_error():
     def handler(request: httpx.Request):
         if request.url.path == "/geocoding/v3/":
-            return httpx.Response(200, json={"status": 0, "result": {"location": {"lng": 121.4, "lat": 31.2}}})
+            return httpx.Response(
+                200, json={"status": 0, "result": {"location": {"lng": 121.4, "lat": 31.2}}}
+            )
         if request.url.path == "/place/v3/around":
             return httpx.Response(
                 200,
-                json={"status": 0, "results": [{"uid": "one", "name": "设施", "location": {"lng": 121.41, "lat": 31.21}}]},
+                json={
+                    "status": 0,
+                    "results": [{"uid": "one", "name": "设施", "location": {"lng": 121.41, "lat": 31.21}}],
+                },
             )
         if request.url.path == "/routematrix/v2/walking":
             return httpx.Response(200, json={"status": 302, "message": "quota"})
@@ -144,7 +181,9 @@ def test_live_partial_pipeline_marks_missing_individual_duration_as_route_error(
             )
         raise AssertionError(request.url.path)
 
-    maps = BaiduMapsClient(BaiduConfig(ak="test", max_place_pages=1, qps=1000), transport=httpx.MockTransport(handler))
+    maps = BaiduMapsClient(
+        BaiduConfig(ak="test", max_place_pages=1, qps=1000), transport=httpx.MockTransport(handler)
+    )
     result = inspect_live(
         maps,
         address="样例地址",
@@ -167,7 +206,9 @@ def run_live_with_delays(delays, concurrency=4):
 
     def handler(request: httpx.Request):
         if request.url.path == "/geocoding/v3/":
-            return httpx.Response(200, json={"status": 0, "result": {"location": {"lng": 121.4, "lat": 31.2}}})
+            return httpx.Response(
+                200, json={"status": 0, "result": {"location": {"lng": 121.4, "lat": 31.2}}}
+            )
         if request.url.path == "/place/v3/around":
             query = request.url.params["query"]
             with lock:
@@ -193,10 +234,16 @@ def run_live_with_delays(delays, concurrency=4):
                 },
             )
         if request.url.path == "/direction/v2/walking":
-            return httpx.Response(200, json={"status": 0, "result": {"routes": [{"distance": 500, "duration": 600, "steps": []}]}})
+            return httpx.Response(
+                200,
+                json={"status": 0, "result": {"routes": [{"distance": 500, "duration": 600, "steps": []}]}},
+            )
         if request.url.path == "/routematrix/v2/walking":
             count = len(request.url.params["destinations"].split("|"))
-            rows = [{"distance": {"value": 500, "text": "500米"}, "duration": {"value": 600, "text": "10分钟"}} for _ in range(count)]
+            rows = [
+                {"distance": {"value": 500, "text": "500米"}, "duration": {"value": 600, "text": "10分钟"}}
+                for _ in range(count)
+            ]
             return httpx.Response(200, json={"status": 0, "result": rows})
         raise AssertionError(request.url.path)
 
@@ -223,13 +270,17 @@ def collect_queries(**inspect_kwargs):
 
     def handler(request: httpx.Request):
         if request.url.path == "/geocoding/v3/":
-            return httpx.Response(200, json={"status": 0, "result": {"location": {"lng": 121.4, "lat": 31.2}}})
+            return httpx.Response(
+                200, json={"status": 0, "result": {"location": {"lng": 121.4, "lat": 31.2}}}
+            )
         if request.url.path == "/place/v3/around":
             seen.append(request.url.params["query"])
             return httpx.Response(200, json={"status": 0, "results": []})
         raise AssertionError(f"没有 POI 时不应发起额外请求：{request.url.path}")
 
-    maps = BaiduMapsClient(BaiduConfig(ak="test", max_place_pages=1, qps=1000), transport=httpx.MockTransport(handler))
+    maps = BaiduMapsClient(
+        BaiduConfig(ak="test", max_place_pages=1, qps=1000), transport=httpx.MockTransport(handler)
+    )
     result = inspect_live(
         maps,
         address="样例地址",
@@ -267,7 +318,9 @@ def test_unknown_profile_is_rejected_before_any_request():
     def handler(request: httpx.Request):
         raise AssertionError("画像无效时不应发起任何请求")
 
-    maps = BaiduMapsClient(BaiduConfig(ak="test", max_place_pages=1, qps=1000), transport=httpx.MockTransport(handler))
+    maps = BaiduMapsClient(
+        BaiduConfig(ak="test", max_place_pages=1, qps=1000), transport=httpx.MockTransport(handler)
+    )
     with pytest.raises(ValueError, match="画像无效"):
         inspect_live(
             maps,

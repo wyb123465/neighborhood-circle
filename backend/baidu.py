@@ -28,6 +28,7 @@ def load_env_file() -> None:
     except ImportError:  # pragma: no cover - dependency is pinned in requirements.txt
         return
     from pathlib import Path
+
     load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 
@@ -155,6 +156,7 @@ class BaiduMapsClient:
         self.replay_metadata: dict[str, Any] | None = None
         if self.config.replay_file:
             from pathlib import Path
+
             try:
                 recorded = json.loads(Path(self.config.replay_file).read_text(encoding="utf-8"))
                 self._replay = recorded["fixtures"]
@@ -163,7 +165,14 @@ class BaiduMapsClient:
                 entries = list(self._replay.values())
                 places = [e for e in entries if e["path"].startswith("/place/")]
                 queries = {e["params"].get("query") for e in places}
-                pairs = max((len(e["params"]["destinations"].split("|")) for e in entries if "destinations" in e["params"]), default=2)
+                pairs = max(
+                    (
+                        len(e["params"]["destinations"].split("|"))
+                        for e in entries
+                        if "destinations" in e["params"]
+                    ),
+                    default=2,
+                )
                 pages = max((int(e["params"].get("page_num", 0)) for e in places), default=0) + 1
                 version = "v2" if places and "/v2/" in places[0]["path"] else "v3"
                 self.replay_metadata = {
@@ -175,12 +184,22 @@ class BaiduMapsClient:
                     "max_facilities": 10,
                     "query_profile": "narrow" if queries <= {"药店", "养老院", "小学", "菜市场"} else "full",
                 }
-                for key in ("address", "city", "minutes", "grid_m", "max_facilities", "query_profile", "selection_strategy"):
+                for key in (
+                    "address",
+                    "city",
+                    "minutes",
+                    "grid_m",
+                    "max_facilities",
+                    "query_profile",
+                    "selection_strategy",
+                ):
                     if key in recorded.get("parameters", {}):
                         self.replay_metadata[key] = recorded["parameters"][key]
                 # Replay must reconstruct the recorded request grouping, not the
                 # operator's current API version / pagination / pair settings.
-                self.config = replace(self.config, matrix_pairs=pairs, max_place_pages=pages, place_api_version=version)
+                self.config = replace(
+                    self.config, matrix_pairs=pairs, max_place_pages=pages, place_api_version=version
+                )
             except (OSError, ValueError, KeyError, TypeError) as error:
                 raise BaiduApiError("回放文件不可用，请检查文件路径和录制格式。") from error
         self._limiter = threading.BoundedSemaphore(max(1, self.config.max_concurrency))
@@ -237,7 +256,13 @@ class BaiduMapsClient:
             self._metrics["network_duration_ms"] += duration_ms
             path_metrics = self._metrics["paths"].setdefault(
                 path,
-                {"calls": 0, "network_requests": 0, "cache_hits": 0, "failures": 0, "network_duration_ms": 0.0},
+                {
+                    "calls": 0,
+                    "network_requests": 0,
+                    "cache_hits": 0,
+                    "failures": 0,
+                    "network_duration_ms": 0.0,
+                },
             )
             path_metrics["calls"] += 1
             path_metrics["network_requests"] += int(network_request)
@@ -250,7 +275,14 @@ class BaiduMapsClient:
         return self._replay is not None
 
     def recorded_search_radius(self, query: str, fallback: int) -> int:
-        return next((int(e["params"]["radius"]) for e in (self._replay or {}).values() if e["path"].startswith("/place/") and e["params"].get("query") == query), fallback)
+        return next(
+            (
+                int(e["params"]["radius"])
+                for e in (self._replay or {}).values()
+                if e["path"].startswith("/place/") and e["params"].get("query") == query
+            ),
+            fallback,
+        )
 
     def _cache_key(self, path: str, params: dict[str, Any]) -> str:
         return request_key(path, params)
@@ -287,42 +319,49 @@ class BaiduMapsClient:
             self._record(path)
             return entry["response"]
 
-        # Space request *starts* by total weight: a matrix chunk carrying N route
-        # pairs advances the schedule N × 1/QPS, so the pair rate — not just the
-        # request rate — stays below the documented 3 次/秒 under either counting
-        # model (in-flight pairs, or pairs per sliding second).
+        # Acquire an in-flight slot before scheduling the start. Reservations
+        # made before a congested semaphore can expire and then start in a burst.
+        # Matrix chunks advance the schedule by their number of route pairs.
         weight = max(1, int(weight))
         gate = self._shared_client or self
-        with gate._rate_lock:
-            now = self._clock()
-            start = max(now, gate._next_start)
-            gate._next_start = start + weight * gate._min_interval
-            wait = start - now
-        if wait > 0:
-            self._sleep(wait)
-
         started = time.perf_counter()
         try:
             with gate._limiter:
+                with gate._rate_lock:
+                    wait = max(0, gate._next_start - self._clock())
+                    if wait:
+                        self._sleep(wait)
+                    gate._next_start = self._clock() + weight * gate._min_interval
                 if self._request_guard:
                     self._request_guard(True)
                 response = self._client.get(path, params=safe_params)
             response.raise_for_status()
             payload = response.json()
         except httpx.TimeoutException as error:
-            self._record(path, network_request=True, failure=True, duration_ms=(time.perf_counter() - started) * 1000)
+            self._record(
+                path, network_request=True, failure=True, duration_ms=(time.perf_counter() - started) * 1000
+            )
             raise BaiduApiError("百度地图请求超时，请稍后重试。") from error
         except httpx.HTTPStatusError as error:
-            self._record(path, network_request=True, failure=True, duration_ms=(time.perf_counter() - started) * 1000)
-            raise BaiduApiError(f"百度地图 HTTP 请求失败（{error.response.status_code}）。", http_status=error.response.status_code) from error
+            self._record(
+                path, network_request=True, failure=True, duration_ms=(time.perf_counter() - started) * 1000
+            )
+            raise BaiduApiError(
+                f"百度地图 HTTP 请求失败（{error.response.status_code}）。",
+                http_status=error.response.status_code,
+            ) from error
         except (httpx.HTTPError, ValueError) as error:
-            self._record(path, network_request=True, failure=True, duration_ms=(time.perf_counter() - started) * 1000)
+            self._record(
+                path, network_request=True, failure=True, duration_ms=(time.perf_counter() - started) * 1000
+            )
             raise BaiduApiError("百度地图响应不可用，未生成体检结论。") from error
 
         status = payload.get("status")
         if status != 0:
             message = str(payload.get("message") or "百度地图服务返回错误")
-            self._record(path, network_request=True, failure=True, duration_ms=(time.perf_counter() - started) * 1000)
+            self._record(
+                path, network_request=True, failure=True, duration_ms=(time.perf_counter() - started) * 1000
+            )
             raise BaiduApiError(f"百度地图接口失败：{message}", code=status)
         with self._cache_lock:
             self._cache[cache_key] = (self._clock(), payload)
@@ -360,14 +399,25 @@ class BaiduMapsClient:
             raise BaiduApiError("经纬度超出支持范围。")
         if source not in {"bd09ll", "gcj02ll", "wgs84ll"}:
             raise BaiduApiError("坐标来源仅支持 BD-09、GCJ-02 或 WGS84。")
-        result = {"input": {"lat": lat, "lng": lng}, "input_type": source, "output_type": "bd09ll", "converted": source != "bd09ll"}
+        result = {
+            "input": {"lat": lat, "lng": lng},
+            "input_type": source,
+            "output_type": "bd09ll",
+            "converted": source != "bd09ll",
+        }
         if source == "bd09ll":
             return {**result, "location": {"lat": lat, "lng": lng}, "source": "user-bd09ll"}
-        payload = self._get_json("/geoconv/v2/", {"coords": f"{lng},{lat}", "model": 1 if source == "gcj02ll" else 2})
+        payload = self._get_json(
+            "/geoconv/v2/", {"coords": f"{lng},{lat}", "model": 1 if source == "gcj02ll" else 2}
+        )
         try:
             point = payload["result"][0]
             converted = {"lng": float(point["x"]), "lat": float(point["y"])}
-            if not all(math.isfinite(v) for v in converted.values()) or not -85 <= converted["lat"] <= 85 or not -180 <= converted["lng"] <= 180:
+            if (
+                not all(math.isfinite(v) for v in converted.values())
+                or not -85 <= converted["lat"] <= 85
+                or not -180 <= converted["lng"] <= 180
+            ):
                 raise ValueError("invalid conversion")
         except (KeyError, IndexError, TypeError, ValueError) as error:
             raise BaiduApiError("坐标转换没有返回有效经纬度，未继续体检。") from error
@@ -416,7 +466,10 @@ class BaiduMapsClient:
             page = payload.get("pois") or payload.get("results") or []
             for item in page:
                 item_location = item.get("location") or {}
-                uid = item.get("uid") or f"{item.get('name')}:{item_location.get('lat')}:{item_location.get('lng')}"
+                uid = (
+                    item.get("uid")
+                    or f"{item.get('name')}:{item_location.get('lat')}:{item_location.get('lng')}"
+                )
                 if uid in seen or not item_location:
                     continue
                 seen.add(uid)
@@ -455,7 +508,7 @@ class BaiduMapsClient:
                 "ret_coordtype": "bd09ll",
             },
         )
-        routes = ((payload.get("result") or {}).get("routes") or [])
+        routes = (payload.get("result") or {}).get("routes") or []
         if not routes:
             raise BaiduApiError("步行路线没有返回可用方案。")
         route = routes[0]
@@ -477,7 +530,9 @@ class BaiduMapsClient:
             "source": "baidu-direction-v2-walking",
         }
 
-    def walking_route_matrix(self, *, origin: dict[str, float], destinations: list[dict[str, float]]) -> list[dict[str, Any]]:
+    def walking_route_matrix(
+        self, *, origin: dict[str, float], destinations: list[dict[str, float]]
+    ) -> list[dict[str, Any]]:
         """One-to-many walking durations, auto-chunked by the concurrency-safe pair limit.
 
         官方口径：`/routematrix/v2/walking`，起终点乘积 ≤ 50，结果按请求顺序逐对返回。
@@ -507,7 +562,12 @@ class BaiduMapsClient:
             for destination, row in zip(chunk, rows):
                 if row.get("status") not in (None, 0):
                     results.append(
-                        {"destination": destination, "status": "error", "message": str(row.get("message") or "单点算路失败"), "source": "baidu-routematrix-v2-walking"}
+                        {
+                            "destination": destination,
+                            "status": "error",
+                            "message": str(row.get("message") or "单点算路失败"),
+                            "source": "baidu-routematrix-v2-walking",
+                        }
                     )
                     continue
                 distance = (row.get("distance") or {}).get("value")

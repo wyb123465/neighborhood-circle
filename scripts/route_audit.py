@@ -52,7 +52,15 @@ def main() -> int:
     from backend.live_inspection import inspect_live  # noqa: E402
     from backend.live_isochrone import build_isochrone  # noqa: E402
 
-    inspect = inspect_live(maps, address=args.address, city=args.city, categories=["医疗", "养老", "教育", "购物"], radius_m=1500, minutes=args.minutes, max_facilities=10)
+    inspect = inspect_live(
+        maps,
+        address=args.address,
+        city=args.city,
+        categories=["医疗", "养老", "教育", "购物"],
+        radius_m=1500,
+        minutes=args.minutes,
+        max_facilities=10,
+    )
     isochrone = build_isochrone(maps, center=center, minutes=args.minutes, refine=True)
 
     pairs = build_pairs(inspect, isochrone, total=args.pairs, minutes=args.minutes)
@@ -60,15 +68,33 @@ def main() -> int:
     rows = []
     for index, pair in enumerate(pairs, 1):
         try:
-            route = maps.walking_route(origin=pair["origin"], destination=pair["destination"], destination_uid=pair.get("uid"))
+            route = maps.walking_route(
+                origin=pair["origin"], destination=pair["destination"], destination_uid=pair.get("uid")
+            )
         except BaiduApiError as error:
-            rows.append({**pair, "straight_m": None, "distance_m": None, "duration_s": None, "walk_minutes": None, "detour_ratio": None, "speed_m_per_min": None, "steps_count": 0, "steps_sum_ratio": None, "flags": [f"调用失败：{error}"], "verdict": "可疑"})
+            rows.append(
+                {
+                    **pair,
+                    "straight_m": None,
+                    "distance_m": None,
+                    "duration_s": None,
+                    "walk_minutes": None,
+                    "detour_ratio": None,
+                    "speed_m_per_min": None,
+                    "steps_count": 0,
+                    "steps_sum_ratio": None,
+                    "flags": [f"调用失败：{error}"],
+                    "verdict": "可疑",
+                }
+            )
             print(f"  [{index}/{len(pairs)}] 失败：{error}")
             continue
         row = audit_one(pair, route)
         rows.append(row)
         mark = "!" if row["flags"] else "ok"
-        print(f"  [{index}/{len(pairs)}] {mark} {row['label']}：{row['distance_m']}m / {row['walk_minutes']}min（绕行 {row['detour_ratio']}，{row['speed_m_per_min']} m/min）")
+        print(
+            f"  [{index}/{len(pairs)}] {mark} {row['label']}：{row['distance_m']}m / {row['walk_minutes']}min（绕行 {row['detour_ratio']}，{row['speed_m_per_min']} m/min）"
+        )
 
     symmetry_rows = []
     for pair in rows[: max(0, args.symmetry)]:
@@ -77,10 +103,24 @@ def main() -> int:
         try:
             backward = maps.walking_route(origin=pair["destination"], destination=pair["origin"])
         except BaiduApiError as error:
-            symmetry_rows.append({"label": pair["label"], "forward_min": pair["walk_minutes"], "backward_min": None, "mismatch": f"反向调用失败：{error}"})
+            symmetry_rows.append(
+                {
+                    "label": pair["label"],
+                    "forward_min": pair["walk_minutes"],
+                    "backward_min": None,
+                    "mismatch": f"反向调用失败：{error}",
+                }
+            )
             continue
         mismatch = reverse_mismatch({"duration_s": pair["duration_s"]}, backward)
-        symmetry_rows.append({"label": pair["label"], "forward_min": pair["walk_minutes"], "backward_min": round(backward["duration_s"] / 60, 1) if backward.get("duration_s") else None, "mismatch": mismatch})
+        symmetry_rows.append(
+            {
+                "label": pair["label"],
+                "forward_min": pair["walk_minutes"],
+                "backward_min": round(backward["duration_s"] / 60, 1) if backward.get("duration_s") else None,
+                "mismatch": mismatch,
+            }
+        )
 
     report = render_report(rows, {"address": args.address, "minutes": args.minutes}, symmetry_rows)
     out_dir = Path(args.out_dir)

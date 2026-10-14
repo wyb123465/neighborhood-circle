@@ -29,10 +29,19 @@ def duration_handler(row_error_at=None):
             dx = (lng - CENTER["lng"]) * lng_scale(CENTER["lat"])
             dy = (lat - CENTER["lat"]) * METERS_PER_DEG_LAT
             distance_m = math.hypot(dx, dy)
-            if row_error_at is not None and math.isclose(dx, row_error_at[0], abs_tol=1.0) and math.isclose(dy, row_error_at[1], abs_tol=1.0):
+            if (
+                row_error_at is not None
+                and math.isclose(dx, row_error_at[0], abs_tol=1.0)
+                and math.isclose(dy, row_error_at[1], abs_tol=1.0)
+            ):
                 rows.append({"status": 1, "message": "单点失败"})
             else:
-                rows.append({"distance": {"value": distance_m, "text": "x"}, "duration": {"value": distance_m / 80 * 60, "text": "x"}})
+                rows.append(
+                    {
+                        "distance": {"value": distance_m, "text": "x"},
+                        "duration": {"value": distance_m / 80 * 60, "text": "x"},
+                    }
+                )
         return httpx.Response(200, json={"status": 0, "result": rows})
 
     return handler
@@ -118,7 +127,9 @@ def test_isochrone_endpoint_parameter_contract():
     from backend.main import app
 
     client = TestClient(app)
-    both = client.get("/api/live/isochrone", params={"address": "上海市长宁区愚园路", "lat": 31.2, "lng": 121.4})
+    both = client.get(
+        "/api/live/isochrone", params={"address": "上海市长宁区愚园路", "lat": 31.2, "lng": 121.4}
+    )
     assert both.status_code == 400
     neither = client.get("/api/live/isochrone")
     assert neither.status_code == 400

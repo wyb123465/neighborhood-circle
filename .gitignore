@@ -13,3 +13,5 @@ coverage/
 .runtime/
 output/
 *.pdf
+
+.ruff_cache/

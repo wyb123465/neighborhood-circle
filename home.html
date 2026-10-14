@@ -1,5 +1,130 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f5f7f5"><title>邻里圈 · 走得到，才算生活圈</title><link rel="icon" href="data:,"><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="workspace.css"></head><body class="home-page"><a class="skip" href="#homeMain">跳转到内容</a><header class="topbar ui-header"><a class="brand" href="/"><svg viewBox="0 0 30 30" fill="none" aria-hidden="true"><path d="M6 22L15 7L24 22H6Z" stroke="currentColor" stroke-width="2"/><circle cx="15" cy="7" r="3" fill="currentColor"/><circle cx="6" cy="22" r="3" fill="currentColor"/><circle cx="24" cy="22" r="3" fill="currentColor"/></svg><h1>邻里圈</h1><span>15分钟生活圈体检</span></a><nav aria-label="项目导航"><a href="/assistant.html">分析工作台</a><a href="/diagnosis.html">离线样例</a><a href="https://github.com/wyb123465/neighborhood-circle" target="_blank" rel="noopener noreferrer">开源代码 ↗</a></nav></header>
-<main id="homeMain"><section class="home-hero"><div class="home-hero-copy"><span class="eyebrow">地图证据 · 社区服务 · 可复现分析</span><h2>走得到，<br>才算生活圈。</h2><p>从设施缺口到规划参考，<br>每一步都有地图证据。</p><div class="home-actions"><a class="button primary" href="/assistant.html">开始体检<i data-lucide="arrow-right"></i></a><a class="home-secondary" href="/assistant.html?demo=care">体验合成样例<i data-lucide="arrow-up-right"></i></a></div><span class="home-hero-note">合成样例可离线复现。配置模型与地图服务后，可分析真实数据。</span></div><div class="home-map-showcase"><div class="home-map-label"><span><i class="dot"></i>滨河片区 · 合成案例</span><span>路径证据</span></div><svg id="homeRoute" viewBox="0 0 700 510" role="img" aria-label="合成路网与绕行路径"></svg><div class="home-path-result"><span>同一起终点的两种判断</span><strong>直线 <b id="homeStraight">—</b> 分钟<span>→</span>路网 <b id="homeNetwork">—</b> 分钟</strong><small id="homeEvidence">正在读取本地合成证据</small></div></div></section>
-<section class="home-story"><div><span class="eyebrow">看清问题，再比较改变</span><h2>一个参考点，<br>改善可以重新计算。</h2><p>在同一片区、同一阈值下，把每个候选分别与原始方案比较。结果保留样点分母和计算依据。</p><a href="/assistant.html?demo=care" class="home-secondary">查看养老缺口案例<i data-lucide="arrow-right"></i></a></div><div class="home-comparison"><div class="home-comparison-row"><span>原始养老覆盖</span><strong id="homeBefore">—</strong><div class="home-track"><i id="homeBeforeBar"></i></div><small id="homeBeforeNote">等权样点口径</small></div><div class="home-comparison-row"><span>模拟加入首个候选</span><strong id="homeAfter">—</strong><div class="home-track"><i id="homeAfterBar"></i></div><small id="homeAfterNote">仅合成样例；不代表可建设地块</small></div></div></section>
-<section class="home-method"><span class="eyebrow">一条能核验的判断链</span><h2>提问题，算证据，比较方案。</h2><div class="home-method-steps"><div><span>01</span><h3>说明需求</h3><p>选择片区、设施与时间阈值。信息不足时，助手会追问。</p></div><div><span>02</span><h3>查看空间证据</h3><p>模型选择受约束的工具；路网、覆盖和统计由程序计算。</p></div><div><span>03</span><h3>保留未知与来源</h3><p>真实、回放与合成分别标明。缺测不被当成确定缺口。</p></div><div><span>04</span><h3>带走可追溯报告</h3><p>比较方案、记录核验备注，保存本机快照或打印摘要。</p></div></div></section>
-<section class="home-boundary"><div><span class="eyebrow">证据的边界，也是产品的一部分</span><h2>把未知写清楚。</h2></div><p>网格样点不代表人口或土地面积；近阈值路线需要核验。设施子类、营业状态、实际出入口、容量与用地条件，仍需要进一步调研。</p></section><section class="home-start"><h2>从一个具体片区开始。</h2><a class="button primary" href="/assistant.html">进入分析工作台<i data-lucide="arrow-right"></i></a></section><footer class="home-footer"><span>邻里圈 · MIT 开源</span><a href="https://github.com/wyb123465/neighborhood-circle" target="_blank" rel="noopener noreferrer">源码与复现说明 ↗</a><span>服务端密钥不进入浏览器。</span></footer></main><script src="assets/vendor/lucide.min.js"></script><script src="home.js"></script></body></html>
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#f5f7f5" />
+    <title>邻里圈 · 走得到，才算生活圈</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="workspace.css" />
+  </head>
+  <body class="home-page">
+    <a class="skip" href="#homeMain">跳转到内容</a>
+    <header class="topbar ui-header">
+      <a class="brand" href="/"
+        ><svg viewBox="0 0 30 30" fill="none" aria-hidden="true">
+          <path d="M6 22L15 7L24 22H6Z" stroke="currentColor" stroke-width="2" />
+          <circle cx="15" cy="7" r="3" fill="currentColor" />
+          <circle cx="6" cy="22" r="3" fill="currentColor" />
+          <circle cx="24" cy="22" r="3" fill="currentColor" />
+        </svg>
+        <h1>邻里圈</h1>
+        <span>15分钟生活圈体检</span></a
+      >
+      <nav aria-label="项目导航">
+        <a href="/assistant.html">分析工作台</a><a href="/diagnosis.html">离线样例</a
+        ><a href="https://github.com/wyb123465/neighborhood-circle" target="_blank" rel="noopener noreferrer"
+          >开源代码 ↗</a
+        >
+      </nav>
+    </header>
+    <main id="homeMain">
+      <section class="home-hero">
+        <div class="home-hero-copy">
+          <span class="eyebrow">地图证据 · 社区服务 · 可复现分析</span>
+          <h2>走得到，<br />才算生活圈。</h2>
+          <p>从设施缺口到规划参考，<br />每一步都有地图证据。</p>
+          <div class="home-actions">
+            <a class="button primary" href="/assistant.html">开始体检<i data-lucide="arrow-right"></i></a
+            ><a class="home-secondary" href="/assistant.html?demo=care"
+              >体验合成样例<i data-lucide="arrow-up-right"></i
+            ></a>
+          </div>
+          <span class="home-hero-note">合成样例可离线复现。配置模型与地图服务后，可分析真实数据。</span>
+        </div>
+        <div class="home-map-showcase">
+          <div class="home-map-label">
+            <span><i class="dot"></i>滨河片区 · 合成案例</span><span>路径证据</span>
+          </div>
+          <svg id="homeRoute" viewBox="0 0 700 510" role="img" aria-label="合成路网与绕行路径"></svg>
+          <div class="home-path-result">
+            <span>同一起终点的两种判断</span
+            ><strong
+              >直线 <b id="homeStraight">—</b> 分钟<span>→</span>路网 <b id="homeNetwork">—</b> 分钟</strong
+            ><small id="homeEvidence">正在读取本地合成证据</small>
+          </div>
+        </div>
+      </section>
+      <section class="home-story">
+        <div>
+          <span class="eyebrow">看清问题，再比较改变</span>
+          <h2>一个参考点，<br />改善可以重新计算。</h2>
+          <p>在同一片区、同一阈值下，把每个候选分别与原始方案比较。结果保留样点分母和计算依据。</p>
+          <a href="/assistant.html?demo=care" class="home-secondary"
+            >查看养老缺口案例<i data-lucide="arrow-right"></i
+          ></a>
+        </div>
+        <div class="home-comparison">
+          <div class="home-comparison-row">
+            <span>原始养老覆盖</span><strong id="homeBefore">—</strong>
+            <div class="home-track"><i id="homeBeforeBar"></i></div>
+            <small id="homeBeforeNote">等权样点口径</small>
+          </div>
+          <div class="home-comparison-row">
+            <span>模拟加入首个候选</span><strong id="homeAfter">—</strong>
+            <div class="home-track"><i id="homeAfterBar"></i></div>
+            <small id="homeAfterNote">仅合成样例；不代表可建设地块</small>
+          </div>
+        </div>
+      </section>
+      <section class="home-method">
+        <span class="eyebrow">一条能核验的判断链</span>
+        <h2>提问题，算证据，比较方案。</h2>
+        <div class="home-method-steps">
+          <div>
+            <span>01</span>
+            <h3>说明需求</h3>
+            <p>选择片区、设施与时间阈值。信息不足时，助手会追问。</p>
+          </div>
+          <div>
+            <span>02</span>
+            <h3>查看空间证据</h3>
+            <p>模型选择受约束的工具；路网、覆盖和统计由程序计算。</p>
+          </div>
+          <div>
+            <span>03</span>
+            <h3>保留未知与来源</h3>
+            <p>真实、回放与合成分别标明。缺测不被当成确定缺口。</p>
+          </div>
+          <div>
+            <span>04</span>
+            <h3>带走可追溯报告</h3>
+            <p>比较方案、记录核验备注，保存本机快照或打印摘要。</p>
+          </div>
+        </div>
+      </section>
+      <section class="home-boundary">
+        <div>
+          <span class="eyebrow">证据的边界，也是产品的一部分</span>
+          <h2>把未知写清楚。</h2>
+        </div>
+        <p>
+          网格样点不代表人口或土地面积；近阈值路线需要核验。设施子类、营业状态、实际出入口、容量与用地条件，仍需要进一步调研。
+        </p>
+      </section>
+      <section class="home-start">
+        <h2>从一个具体片区开始。</h2>
+        <a class="button primary" href="/assistant.html">进入分析工作台<i data-lucide="arrow-right"></i></a>
+      </section>
+      <footer class="home-footer">
+        <span>邻里圈 · MIT 开源</span
+        ><a href="https://github.com/wyb123465/neighborhood-circle" target="_blank" rel="noopener noreferrer"
+          >源码与复现说明 ↗</a
+        ><span>服务端密钥不进入浏览器。</span>
+      </footer>
+    </main>
+    <script src="assets/vendor/lucide.min.js"></script>
+    <script src="home.js"></script>
+  </body>
+</html>

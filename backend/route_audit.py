@@ -83,7 +83,15 @@ def build_pairs(
     threshold_s = minutes * 60
     pairs: list[dict[str, Any]] = []
     for facility in inspect.get("facilities") or []:
-        pairs.append({"kind": "设施", "label": facility.get("name") or "未命名设施", "category": "、".join(facility.get("categories") or []), "origin": dict(center), "destination": dict(facility["location"])})
+        pairs.append(
+            {
+                "kind": "设施",
+                "label": facility.get("name") or "未命名设施",
+                "category": "、".join(facility.get("categories") or []),
+                "origin": dict(center),
+                "destination": dict(facility["location"]),
+            }
+        )
     by_status: dict[str, list[dict[str, Any]]] = {}
     for point in isochrone.get("points") or []:
         if point.get("duration_s") is None:
@@ -99,24 +107,38 @@ def build_pairs(
             for point in pool[:per_status]:
                 if len(pairs) >= total:
                     break
-                pairs.append({"kind": f"网格-{status}", "label": f"({point['dx_m']}, {point['dy_m']})", "category": "采样点", "origin": dict(center), "destination": {"lat": point["lat"], "lng": point["lng"]}})
+                pairs.append(
+                    {
+                        "kind": f"网格-{status}",
+                        "label": f"({point['dx_m']}, {point['dy_m']})",
+                        "category": "采样点",
+                        "origin": dict(center),
+                        "destination": {"lat": point["lat"], "lng": point["lng"]},
+                    }
+                )
     return pairs[:total]
 
 
-def render_report(rows: list[dict[str, Any]], meta: dict[str, Any], symmetry_rows: list[dict[str, Any]]) -> str:
+def render_report(
+    rows: list[dict[str, Any]], meta: dict[str, Any], symmetry_rows: list[dict[str, Any]]
+) -> str:
     """渲染桌面核验模板：脚本自动检查列已填，人工两列留白待桌面目测后回填。"""
     flagged = sum(1 for row in rows if row["verdict"] == "可疑")
     lines = [
-        f"# 路线审计报告：{meta['address']}", "",
+        f"# 路线审计报告：{meta['address']}",
+        "",
         f"- 生成时间：{datetime.now().strftime('%Y-%m-%d %H:%M')}",
         f"- 数据来源：百度地图步行路线 API（coord_type=bd09ll）+ 地理编码 V3",
         f"- 审计算法：{METHOD_VERSION}｜配对数：{len(rows)}｜自动可疑：{flagged} 条",
-        f"- 阈值分钟：{meta['minutes']}｜投影：当地平面近似（等距圆柱）", "",
-        "## 使用方法（桌面核验，无需实地）", "",
+        f"- 阈值分钟：{meta['minutes']}｜投影：当地平面近似（等距圆柱）",
+        "",
+        "## 使用方法（桌面核验，无需实地）",
+        "",
         "1. 看「自动检查」列：红旗项必须逐条桌面目测；自动通过项随机抽 5 条目测。",
         "2. 目测方式：把「终点坐标」粘贴进百度地图网页版，对比路线是否真实存在、距离量级是否一致。",
         "3. 在「人工核对」与「结论」列回填：核对方式（地图目测/实地）、结论（合理/存疑+原因）。",
-        "4. 全部回填后，本报告即为任务书要求的「真实对比测试报告」附件。", "",
+        "4. 全部回填后，本报告即为任务书要求的「真实对比测试报告」附件。",
+        "",
         f"| # | 类型 | 标签 | 终点坐标（经度,纬度） | 直线m | 路网m | 分钟 | 绕行系数 | 步速m/min | 分段/总 | 自动检查 | 人工核对 | 结论 |",
         "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |",
     ]
@@ -128,9 +150,23 @@ def render_report(rows: list[dict[str, Any]], meta: dict[str, Any], symmetry_row
             f"| {index} | {row['kind']} | {row['label']} | `{destination_text}` | {row['straight_m']} | {row['distance_m']} | {row['walk_minutes']} | {row['detour_ratio']} | {row['speed_m_per_min']} | {row['steps_sum_ratio']} | {check} | | |"
         )
     if symmetry_rows:
-        lines += ["", "## 往返对称性抽查", "", "| 配对 | 正向分钟 | 反向分钟 | 自动检查 |", "| --- | ---: | ---: | --- |"]
+        lines += [
+            "",
+            "## 往返对称性抽查",
+            "",
+            "| 配对 | 正向分钟 | 反向分钟 | 自动检查 |",
+            "| --- | ---: | ---: | --- |",
+        ]
         for row in symmetry_rows:
-            lines.append(f"| {row['label']} | {row['forward_min']} | {row['backward_min']} | {row['mismatch'] or '通过'} |")
-    lines += ["", "## 边界说明", "", "- 本报告只审计「API 数据自身的物理一致性与桌面可核对性」，不构成实地测量结论。",
-              "- 步速范围与绕行系数范围是城区一般经验值，个别坡地/滨河路线可人工放宽并注明。", ""]
+            lines.append(
+                f"| {row['label']} | {row['forward_min']} | {row['backward_min']} | {row['mismatch'] or '通过'} |"
+            )
+    lines += [
+        "",
+        "## 边界说明",
+        "",
+        "- 本报告只审计「API 数据自身的物理一致性与桌面可核对性」，不构成实地测量结论。",
+        "- 步速范围与绕行系数范围是城区一般经验值，个别坡地/滨河路线可人工放宽并注明。",
+        "",
+    ]
     return "\n".join(lines)

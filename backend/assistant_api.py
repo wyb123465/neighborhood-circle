@@ -1,4 +1,5 @@
 """Bounded assistant jobs: real model tool loop, evidence, cancellation."""
+
 from __future__ import annotations
 
 import copy
@@ -83,7 +84,17 @@ class Job:
 
     def event(self, kind, label, name=None, args=None):
         with self.lock:
-            event = {"id": len(self.events), "kind": kind, "label": label, "name": name, "arguments": args, "status": "running", "started": time.monotonic(), "duration_ms": None, "error": None}
+            event = {
+                "id": len(self.events),
+                "kind": kind,
+                "label": label,
+                "name": name,
+                "arguments": args,
+                "status": "running",
+                "started": time.monotonic(),
+                "duration_ms": None,
+                "error": None,
+            }
             self.events.append(event)
             return event
 
@@ -95,10 +106,22 @@ class Job:
 
     def public(self):
         with self.lock:
-            return copy.deepcopy({"id": self.id, "session_id": self.session["id"], "status": self.status, "mode": self.mode,
-                "model_called": self.model_calls > 0, "model_calls": self.model_calls, "tool_calls": self.tool_calls,
-                "map_requests": self.map_requests, "map_request_budget": self.max_map_requests,
-                "events": [{k: v for k, v in e.items() if k != "started"} for e in self.events], "result": self.result, "error": self.error})
+            return copy.deepcopy(
+                {
+                    "id": self.id,
+                    "session_id": self.session["id"],
+                    "status": self.status,
+                    "mode": self.mode,
+                    "model_called": self.model_calls > 0,
+                    "model_calls": self.model_calls,
+                    "tool_calls": self.tool_calls,
+                    "map_requests": self.map_requests,
+                    "map_request_budget": self.max_map_requests,
+                    "events": [{k: v for k, v in e.items() if k != "started"} for e in self.events],
+                    "result": self.result,
+                    "error": self.error,
+                }
+            )
 
 
 class RunManager:
@@ -120,7 +143,10 @@ class RunManager:
             for key, session in list(self.sessions.items()):
                 if now - session["touched"] > 1800:
                     del self.sessions[key]
-            if len(self.jobs) >= 50 or sum(job.status in {"queued", "running", "cancelling"} for job in self.jobs.values()) >= 6:
+            if (
+                len(self.jobs) >= 50
+                or sum(job.status in {"queued", "running", "cancelling"} for job in self.jobs.values()) >= 6
+            ):
                 raise HTTPException(429, "当前运行较多，请等待已有任务完成。")
             if request.session_id:
                 session = self.sessions.get(request.session_id)
@@ -128,12 +154,23 @@ class RunManager:
                     raise HTTPException(404, "会话已过期，请开始新的体检。")
                 if session["data_mode"] != request.data_mode:
                     raise HTTPException(400, "切换数据模式后请开始新会话。")
-                if any(j.session is session and j.status in {"queued", "running", "cancelling"} for j in self.jobs.values()):
+                if any(
+                    j.session is session and j.status in {"queued", "running", "cancelling"}
+                    for j in self.jobs.values()
+                ):
                     raise HTTPException(409, "前一个任务仍在结束，请稍后重试。")
             else:
                 if len(self.sessions) >= 30:
                     raise HTTPException(429, "会话较多，请稍后重试。")
-                session = {"id": uuid.uuid4().hex, "data_mode": request.data_mode, "snapshots": {}, "facts": {}, "latest": None, "tasks": [], "touched": now}
+                session = {
+                    "id": uuid.uuid4().hex,
+                    "data_mode": request.data_mode,
+                    "snapshots": {},
+                    "facts": {},
+                    "latest": None,
+                    "tasks": [],
+                    "touched": now,
+                }
                 self.sessions[session["id"]] = session
             session["touched"] = now
             job = Job(request, session)
@@ -173,7 +210,9 @@ class RunManager:
             if isinstance(error, (Stopped, BudgetExceeded, BaiduApiError)):
                 job.complete_event(event, str(error))
                 raise
-            message = "工具参数无效，请检查字段和范围。" if isinstance(error, ValidationError) else str(error)[:300]
+            message = (
+                "工具参数无效，请检查字段和范围。" if isinstance(error, ValidationError) else str(error)[:300]
+            )
             job.complete_event(event, message)
             return {"error": message}, False
 
@@ -182,29 +221,78 @@ class RunManager:
         previous = context.get_snapshot() if context.session.get("latest") else None
         same_scope = previous and previous["parameters"]["minutes"] == job.request.minutes
         if previous and previous["mode"] == "synthetic":
-            same_scope = same_scope and previous["analysis"]["inspection"]["community"]["id"] == job.request.community_id and previous["parameters"]["speed_m_min"] == job.request.speed
+            same_scope = (
+                same_scope
+                and previous["analysis"]["inspection"]["community"]["id"] == job.request.community_id
+                and previous["parameters"]["speed_m_min"] == job.request.speed
+            )
         elif previous:
-            same_scope = same_scope and previous["analysis"]["inspection"]["community"]["address"] == job.request.address
-        if same_scope and any(token in task for token in ("为什么", "依据", "刚才", "解释", "复核", "比较刚才")) and not re.search(r"\d+\s*分钟", task):
+            same_scope = (
+                same_scope
+                and previous["analysis"]["inspection"]["community"]["address"] == job.request.address
+            )
+        if (
+            same_scope
+            and any(token in task for token in ("为什么", "依据", "刚才", "解释", "复核", "比较刚才"))
+            and not re.search(r"\d+\s*分钟", task)
+        ):
             self.invoke(job, context, "read_evidence", {})
         else:
-            categories = [c for c, words in {"医疗": ("医疗", "药店", "医院"), "养老": ("养老", "老人", "老年"), "教育": ("教育", "小学", "学校"), "购物": ("购物", "菜市场", "菜场", "买菜")}.items() if any(w in task for w in words)]
+            categories = [
+                c
+                for c, words in {
+                    "医疗": ("医疗", "药店", "医院"),
+                    "养老": ("养老", "老人", "老年"),
+                    "教育": ("教育", "小学", "学校"),
+                    "购物": ("购物", "菜市场", "菜场", "买菜"),
+                }.items()
+                if any(w in task for w in words)
+            ]
             if not categories:
-                return {"question": "请说明关注的设施，或使用界面中的示例需求。当前为规则模式。", "facts": [], "actions": []}
+                return {
+                    "question": "请说明关注的设施，或使用界面中的示例需求。当前为规则模式。",
+                    "facts": [],
+                    "actions": [],
+                }
             if job.request.data_mode == "live" and not job.request.address:
-                return {"question": "请在地址栏填写要体检的社区地址。当前为规则模式，不猜测地点。", "facts": [], "actions": []}
+                return {
+                    "question": "请在地址栏填写要体检的社区地址。当前为规则模式，不猜测地点。",
+                    "facts": [],
+                    "actions": [],
+                }
             match = re.search(r"(\d+)\s*分钟", task)
-            args = {"categories": categories, "community_id": job.request.community_id, "address": job.request.address, "city": job.request.city, "minutes": int(match.group(1)) if match else job.request.minutes, "speed": job.request.speed}
+            args = {
+                "categories": categories,
+                "community_id": job.request.community_id,
+                "address": job.request.address,
+                "city": job.request.city,
+                "minutes": int(match.group(1)) if match else job.request.minutes,
+                "speed": job.request.speed,
+            }
             result, _ = self.invoke(job, context, "inspect_neighborhood", args)
             if "error" in result:
                 raise ValueError(result["error"])
         if any(w in task for w in ("比较", "候选", "方案", "推荐")):
             count = re.search(r"(?:前|最多)?\s*([123一二两三])\s*(?:个|处|种)", task)
-            limit = {"一": 1, "二": 2, "两": 2, "三": 3}.get(count.group(1), int(count.group(1)) if count and count.group(1).isdigit() else 3) if count else 3
+            limit = (
+                {"一": 1, "二": 2, "两": 2, "三": 3}.get(
+                    count.group(1), int(count.group(1)) if count and count.group(1).isdigit() else 3
+                )
+                if count
+                else 3
+            )
             self.invoke(job, context, "compare_candidates", {"limit": limit})
         snapshot = context.get_snapshot()
         selected = snapshot["fact_ids"][-3:] if "comparison" in snapshot else snapshot["fact_ids"][:5]
-        answer, _ = self.invoke(job, context, "finish", {"fact_ids": selected, "actions": ["verify_site" if snapshot.get("comparison") else "verify_pois"]})
+        answer, _ = self.invoke(
+            job,
+            context,
+            "finish",
+            {
+                "fact_ids": selected,
+                "actions": ["verify_site" if snapshot.get("comparison") else "verify_pois"],
+            },
+        )
         return answer
 
     def run(self, job):
@@ -221,7 +309,20 @@ class RunManager:
                 job.mode = "llm-agent"
                 model = self.model_factory(config)
                 previous = context.summary(context.get_snapshot()) if job.session.get("latest") else None
-                messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": json.dumps({"request": job.request.model_dump(exclude={"session_id"}), "previous_result": previous, "recent_tasks": job.session["tasks"][-3:]}, ensure_ascii=False)}]
+                messages = [
+                    {"role": "system", "content": SYSTEM},
+                    {
+                        "role": "user",
+                        "content": json.dumps(
+                            {
+                                "request": job.request.model_dump(exclude={"session_id"}),
+                                "previous_result": previous,
+                                "recent_tasks": job.session["tasks"][-3:],
+                            },
+                            ensure_ascii=False,
+                        ),
+                    },
+                ]
                 answer = None
                 for _ in range(5):
                     job.guard()
@@ -236,7 +337,9 @@ class RunManager:
                     job.guard()
                     calls = message.get("tool_calls") or []
                     if not calls:
-                        raise ModelError("模型未返回工具调用，无法将普通文本当作已验证体检结论。请确认模型支持工具调用。")
+                        raise ModelError(
+                            "模型未返回工具调用，无法将普通文本当作已验证体检结论。请确认模型支持工具调用。"
+                        )
                     messages.append(message)
                     for call in calls:
                         function = call.get("function") or {}
@@ -245,7 +348,13 @@ class RunManager:
                         except (ValueError, TypeError):
                             raw = None
                         result, finished = self.invoke(job, context, function.get("name", ""), raw)
-                        messages.append({"role": "tool", "tool_call_id": call.get("id", ""), "content": json.dumps(result, ensure_ascii=False)})
+                        messages.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": call.get("id", ""),
+                                "content": json.dumps(result, ensure_ascii=False),
+                            }
+                        )
                         if finished:
                             answer = result
                             break
@@ -264,7 +373,11 @@ class RunManager:
                 if context.used_snapshots and not job.cancel.is_set():
                     job.mode = "llm-agent-partial" if job.model_calls else "rule-only"
                     snapshot = context.get_snapshot(context.used_snapshots[-1])
-                    answer = {"question": None, "facts": [context.facts[k] for k in snapshot["fact_ids"][:6]], "actions": ["运行未完整完成，仅展示已取得证据；请检查错误后重试。"]}
+                    answer = {
+                        "question": None,
+                        "facts": [context.facts[k] for k in snapshot["fact_ids"][:6]],
+                        "actions": ["运行未完整完成，仅展示已取得证据；请检查错误后重试。"],
+                    }
                     self.finalize(job, context, answer, partial=True)
                 else:
                     job.status = "error"
@@ -277,7 +390,11 @@ class RunManager:
             job.session["touched"] = time.monotonic()
 
     def finalize(self, job, context, answer, partial=False):
-        latest = context.get_snapshot(context.used_snapshots[-1]) if context.used_snapshots and not answer.get("question") else None
+        latest = (
+            context.get_snapshot(context.used_snapshots[-1])
+            if context.used_snapshots and not answer.get("question")
+            else None
+        )
         facts = answer["facts"]
         if latest:
             for key in ("limits", "boundary-review"):
@@ -286,16 +403,30 @@ class RunManager:
                     facts.append(context.facts[identity])
         with job.lock:
             job.status = "needs_input" if answer.get("question") else ("partial" if partial else "complete")
-            job.result = {**answer, "analysis": latest["analysis"] if latest else None,
-                "snapshots": {key: {"analysis": value["analysis"], "comparison": value.get("comparison", [])} for key, value in job.session["snapshots"].items()},
+            job.result = {
+                **answer,
+                "analysis": latest["analysis"] if latest else None,
+                "snapshots": {
+                    key: {"analysis": value["analysis"], "comparison": value.get("comparison", [])}
+                    for key, value in job.session["snapshots"].items()
+                },
                 "comparison": latest.get("comparison", []) if latest else [],
-                "note": "模型选择工具与证据；所有数值由程序计算。" if job.mode == "llm-agent" else ("运行部分完成，仅展示已取得证据。" if partial else "规则模式按已识别需求执行；数值与证据由程序产生。")}
+                "note": "模型选择工具与证据；所有数值由程序计算。"
+                if job.mode == "llm-agent"
+                else (
+                    "运行部分完成，仅展示已取得证据。"
+                    if partial
+                    else "规则模式按已识别需求执行；数值与证据由程序产生。"
+                ),
+            }
             job.session["tasks"].append(job.request.task)
             job.session["tasks"] = job.session["tasks"][-4:]
             while len(job.session["snapshots"]) > 6:
                 identity = next(iter(job.session["snapshots"]))
                 del job.session["snapshots"][identity]
-                job.session["facts"] = {k: v for k, v in job.session["facts"].items() if v["snapshot_id"] != identity}
+                job.session["facts"] = {
+                    k: v for k, v in job.session["facts"].items() if v["snapshot_id"] != identity
+                }
 
 
 manager = RunManager()
@@ -304,7 +435,11 @@ manager = RunManager()
 @router.get("/status")
 def status():
     config = ModelConfig.from_env()
-    return {**config.public(), "tools": list(LABELS.values()), "mode": "llm-ready" if config.configured else "rule-only"}
+    return {
+        **config.public(),
+        "tools": list(LABELS.values()),
+        "mode": "llm-ready" if config.configured else "rule-only",
+    }
 
 
 @router.post("/runs", status_code=202)
@@ -327,14 +462,14 @@ def cancel_run(identity: str):
     return job.public()
 
 
-@router.get('/runs/{identity}/scenarios')
+@router.get("/runs/{identity}/scenarios")
 def scenarios(identity: str):
     job = manager.get(identity).public()
-    if job['status'] not in {'complete', 'partial'}:
-        raise HTTPException(409, '请等待体检结果完成后再比较。')
-    analysis = (job.get('result') or {}).get('analysis')
+    if job["status"] not in {"complete", "partial"}:
+        raise HTTPException(409, "请等待体检结果完成后再比较。")
+    analysis = (job.get("result") or {}).get("analysis")
     if not analysis:
-        raise HTTPException(400, '本次没有可比较的体检结果。')
+        raise HTTPException(400, "本次没有可比较的体检结果。")
     try:
         return compare_thresholds(analysis)
     except ValueError as error:

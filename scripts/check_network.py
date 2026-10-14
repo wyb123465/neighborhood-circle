@@ -3,6 +3,7 @@
 Compare domestic and foreign probes because VPN/TUN split routing can expose
 different IPv4 addresses even when the client forces the IPv4 address family.
 """
+
 import ipaddress
 import re
 import sys
@@ -16,11 +17,17 @@ from backend.baidu import BaiduConfig
 
 def main():
     config = BaiduConfig.from_env()
-    print(f"force_ipv4={config.force_ipv4}；AK 末四位={config.ak[-4:] if config.ak else '未配置'}（不显示完整密钥）")
+    print(
+        f"force_ipv4={config.force_ipv4}；AK 末四位={config.ak[-4:] if config.ak else '未配置'}（不显示完整密钥）"
+    )
     transport = httpx.HTTPTransport(local_address="0.0.0.0") if config.force_ipv4 else None
     results = {}
     with httpx.Client(transport=transport, timeout=10) as network:
-        for name, url in (("国内 ipip", "https://myip.ipip.net"), ("国内 3322", "https://ip.3322.net"), ("国外 ipify", "https://api.ipify.org")):
+        for name, url in (
+            ("国内 ipip", "https://myip.ipip.net"),
+            ("国内 3322", "https://ip.3322.net"),
+            ("国外 ipify", "https://api.ipify.org"),
+        ):
             try:
                 response = network.get(url)
                 response.raise_for_status()

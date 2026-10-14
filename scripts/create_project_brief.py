@@ -163,10 +163,7 @@ def make_table(data, widths, header=True, row_heights=None):
     converted = []
     for row_index, row in enumerate(data):
         converted.append(
-            [
-                cell if hasattr(cell, "wrap") else p(str(cell), small if row_index else card)
-                for cell in row
-            ]
+            [cell if hasattr(cell, "wrap") else p(str(cell), small if row_index else card) for cell in row]
         )
     table = Table(converted, colWidths=widths, rowHeights=row_heights, repeatRows=1 if header else 0)
     commands = [
@@ -206,8 +203,14 @@ def build_story():
     hero = Table(
         [
             [
-                rich("<font size='18' color='#197257'><b>从体检到规划</b></font><br/><font color='#526260'>真实路线证据 + 1 公里专项盲区 + 候选参考点</font>", card),
-                rich("<font color='#7a5b12'><b>交付版 v0.4.1</b></font><br/><font color='#526260'>合成可复现，真实链路可验证<br/>未知状态不冒充缺口</font>", card),
+                rich(
+                    "<font size='18' color='#197257'><b>从体检到规划</b></font><br/><font color='#526260'>真实路线证据 + 1 公里专项盲区 + 候选参考点</font>",
+                    card,
+                ),
+                rich(
+                    "<font color='#7a5b12'><b>交付版 v0.4.1</b></font><br/><font color='#526260'>合成可复现，真实链路可验证<br/>未知状态不冒充缺口</font>",
+                    card,
+                ),
             ]
         ],
         colWidths=[92 * mm, 74 * mm],
@@ -246,18 +249,41 @@ def build_story():
     story += section_heading("2. 产品闭环")
     flow = [
         ["输入", "计算", "判断", "规划", "交付"],
-        ["社区地址\n设施类别\n步行阈值", "地理编码\nPOI 检索\n批量步行算路", "网格采样等时圈\n1 公里专项盲区\n未知状态", "按类别生成\n候选参考点\n覆盖增益", "地图展示\nMarkdown / JSON\n证据编号"],
+        [
+            "社区地址\n设施类别\n步行阈值",
+            "地理编码\nPOI 检索\n批量步行算路",
+            "网格采样等时圈\n1 公里专项盲区\n未知状态",
+            "按类别生成\n候选参考点\n覆盖增益",
+            "地图展示\nMarkdown / JSON\n证据编号",
+        ],
     ]
     story.append(make_table(flow, [34 * mm, 34 * mm, 34 * mm, 34 * mm, 34 * mm]))
     story.append(Spacer(1, 2 * mm))
-    story.append(p("核心产品叙事：不是“附近有什么”，而是“哪里确实缺、证据是什么、补一个点可能改善多少”。候选参考点不是建设选址，不替代规划审批。", body))
+    story.append(
+        p(
+            "核心产品叙事：不是“附近有什么”，而是“哪里确实缺、证据是什么、补一个点可能改善多少”。候选参考点不是建设选址，不替代规划审批。",
+            body,
+        )
+    )
 
     story += section_heading("3. 参赛题要求的直接响应")
     score = [
         ["能力", "当前实现", "展示方式"],
-        ["真实地图能力", "百度地理编码、POI V3/V2 兼容、步行路线和 RouteMatrix 批量算路", "实时页状态、路线表、性能字段"],
-        ["空间分析", "网格采样近似等时圈，自适应边界加密，逐点 reachable / unreachable / unknown", "地图方格、比例、口径警告"],
-        ["1 公里专项", "菜市场、药店、小学按 250 米等权网格检查；查询失败、分页截断或范围不足为 unknown", "类别统计、灰色缺口与黄色未知样点"],
+        [
+            "真实地图能力",
+            "百度地理编码、POI V3/V2 兼容、步行路线和 RouteMatrix 批量算路",
+            "实时页状态、路线表、性能字段",
+        ],
+        [
+            "空间分析",
+            "网格采样近似等时圈，自适应边界加密，逐点 reachable / unreachable / unknown",
+            "地图方格、比例、口径警告",
+        ],
+        [
+            "1 公里专项",
+            "菜市场、药店、小学按 250 米等权网格检查；查询失败、分页截断或范围不足为 unknown",
+            "类别统计、灰色缺口与黄色未知样点",
+        ],
         ["从问题到方案", "对已知缺口按类别生成最多 3 个贪心覆盖参考点", "编号标记、覆盖增益、报告表格"],
         ["工程可信度", "缓存、QPS 节流、并发边界、失败回退、服务端 AK、不泄露密钥", "代码、测试、验收记录"],
     ]
@@ -267,25 +293,47 @@ def build_story():
     story += section_heading("4. 已有证据")
     evidence = [
         ["证据", "结果", "说明"],
-        ["自动测试", "Python 93 passed（独立源码环境）", "全新虚拟环境、解压源码；API、等时圈、盲区、安全与错误边界"],
+        [
+            "自动测试",
+            "Python 93 passed（独立源码环境）",
+            "全新虚拟环境、解压源码；API、等时圈、盲区、安全与错误边界",
+        ],
         ["前端状态测试", "9 passed", "请求竞态、旧结果清除、回放参数、报告分母"],
         ["合成真值对比", "6 组 BFS 与 Dijkstra 点数一致", "2 个样例、3 组参数；不是实际社区准确率"],
         ["历史回放", "40 个录制请求，0 次回放网络请求", "无需 AK；录制于 2026-10-13，明确保留时点"],
-        ["POI 外部资料核对", "3 类正向样本获支持，1 个误命中排除", "政府公开资料交叉核对；不是实地或营业状态核验"],
-        ["路线网页对照", "20 条完成，阈值判断 17/20 一致", "历史 API 与当前网页同平台对照，3 条分歧保留；非实地准确率"],
-        ["真实百度验收", "2026-10-13：8 次调用，0 失败", "1 地理编码 + 4 POI + 3 步行路线；报告保存在本地运行目录"],
+        [
+            "POI 外部资料核对",
+            "3 类正向样本获支持，1 个误命中排除",
+            "政府公开资料交叉核对；不是实地或营业状态核验",
+        ],
+        [
+            "路线网页对照",
+            "20 条完成，阈值判断 17/20 一致",
+            "历史 API 与当前网页同平台对照，3 条分歧保留；非实地准确率",
+        ],
+        [
+            "真实百度验收",
+            "2026-10-13：8 次调用，0 失败",
+            "1 地理编码 + 4 POI + 3 步行路线；报告保存在本地运行目录",
+        ],
         ["路线审计", "20 / 20 自动一致性通过", "绕行系数和步速范围均记录，人工目测仍需回填"],
         ["复测边界", "2026-10-13：白名单修正后恢复", "排查国内外出口分流；保持 IPv4 与服务端 IP 限制"],
     ]
     story.append(make_table(evidence, [34 * mm, 53 * mm, 83 * mm]))
     story.append(Spacer(1, 2 * mm))
-    story.append(p("证据原则：真实成功记录和当前失败边界都保留；一次 API 调用不被包装成真实社区治理成效。", body))
+    story.append(
+        p("证据原则：真实成功记录和当前失败边界都保留；一次 API 调用不被包装成真实社区治理成效。", body)
+    )
 
     story += section_heading("5. 技术结构")
     architecture = [
         ["层", "职责", "边界"],
         ["合成算法层", "NetworkX 路网最短路径、覆盖率、候选设施增益", "米制平面样例，不代表真实社区"],
-        ["百度适配层", "服务端 AK、V3/V2 POI、路线、批量算路、缓存和限流", "AK 不进入浏览器；接口失败不等于没有设施"],
+        [
+            "百度适配层",
+            "服务端 AK、V3/V2 POI、路线、批量算路、缓存和限流",
+            "AK 不进入浏览器；接口失败不等于没有设施",
+        ],
         ["空间采样层", "等时圈网格采样、边界加密、1 公里专项网格", "输出采样事实，不拟合连续边界"],
         ["产品交互层", "实时地图、设施表、盲区统计、候选点、导出", "真实与合成模式明确分离"],
     ]
@@ -306,11 +354,19 @@ def build_story():
     story += section_heading("7. 现场演示脚本")
     demo = [
         ["时间", "动作", "要说清楚"],
-        ["0:00 - 1:00", "离线样例：桥梁绕行、直线与路网差异、候选设施前后重算", "先证明算法可复现，断网也能演示"],
+        [
+            "0:00 - 1:00",
+            "离线样例：桥梁绕行、直线与路网差异、候选设施前后重算",
+            "先证明算法可复现，断网也能演示",
+        ],
         ["1:00 - 2:20", "实时页：真实步行等时圈、设施路线和未知点", "百度耗时与合成固定步速分开，不混口径"],
         ["2:20 - 3:30", "1 公里专项：菜市场、药店、小学统计和地图缺口", "查询失败显示未知，不直接下结论"],
         ["3:30 - 4:20", "规划候选点：按类别查看覆盖增益", "这是采样启发式，不是建设选址"],
-        ["4:20 - 5:00", "打开报告和证据编号，说明限流、失败回退、安全边界", "用证据组织故事，不用故事替代证据"],
+        [
+            "4:20 - 5:00",
+            "打开报告和证据编号，说明限流、失败回退、安全边界",
+            "用证据组织故事，不用故事替代证据",
+        ],
     ]
     story.append(make_table(demo, [28 * mm, 74 * mm, 68 * mm]))
 
@@ -320,21 +376,38 @@ def build_story():
         ["P1", "路线对照中的 3 条阈值分歧复核", "20 条网页对照已完成，仍需核对实际通行与出入口"],
         ["P0", "团队署名、公开地址与报名材料统一", "项目介绍与 约 4 分钟截图讲解视频已准备，提交前核对署名"],
         ["P0", "远端仓库安全检查和发布", "无 .env、AK、.runtime、真实原始响应和个人信息"],
-        ["P1", "Docker 镜像构建与启动验收", "已用本机 Python 3.12 基础镜像完成 8001 烟测；Docker Hub 首次拉取需网络可用"],
+        [
+            "P1",
+            "Docker 镜像构建与启动验收",
+            "已用本机 Python 3.12 基础镜像完成 8001 烟测；Docker Hub 首次拉取需网络可用",
+        ],
         ["P1", "用户访谈或试用反馈", "只能记录真实受访者角色和授权反馈，不虚构客户"],
     ]
     story.append(make_table(remaining, [22 * mm, 72 * mm, 76 * mm]))
     story.append(Spacer(1, 4 * mm))
-    story.append(rich("<font color='#7a5b12'><b>交付判断</b></font>　功能主线已冻结。已补齐无 AK 回放、来源标识、中心坐标和缺口证据边界；后续优先独立核验及公开发布。", body))
+    story.append(
+        rich(
+            "<font color='#7a5b12'><b>交付判断</b></font>　功能主线已冻结。已补齐无 AK 回放、来源标识、中心坐标和缺口证据边界；后续优先独立核验及公开发布。",
+            body,
+        )
+    )
 
     story += section_heading("9. 评委快速复现")
-    story.append(make_table([
-        ["场景", "操作与说明"],
-        ["Windows 首次启动", "powershell -ExecutionPolicy Bypass -File .\\start.ps1；首次自动创建环境并安装依赖"],
-        ["Linux / macOS", "bash start.sh；默认合成模式不读取密钥、不请求地图"],
-        ["真值核对", "python scripts/verify_release.py；报告写入 output/verification"],
-        ["私有历史回放", "start.ps1 -Mode replay；录制数据只在本地，不随公共源码分发"],
-    ], [38 * mm, 132 * mm]))
+    story.append(
+        make_table(
+            [
+                ["场景", "操作与说明"],
+                [
+                    "Windows 首次启动",
+                    "powershell -ExecutionPolicy Bypass -File .\\start.ps1；首次自动创建环境并安装依赖",
+                ],
+                ["Linux / macOS", "bash start.sh；默认合成模式不读取密钥、不请求地图"],
+                ["真值核对", "python scripts/verify_release.py；报告写入 output/verification"],
+                ["私有历史回放", "start.ps1 -Mode replay；录制数据只在本地，不随公共源码分发"],
+            ],
+            [38 * mm, 132 * mm],
+        )
+    )
 
     story += [
         Spacer(1, 5 * mm),

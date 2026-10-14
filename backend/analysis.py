@@ -58,8 +58,18 @@ def inspect(spec, categories, minutes=15, speed=80, center=None, addition=None):
     after = {c: dict(values) for c, values in before.items()}
     if addition:
         category, candidate = addition["category"], addition["node"]
-        after[category] = {n: min(d, lengths[n].get(candidate, math.inf)) for n, d in before[category].items()}
-        relevant.append({"id": "proposed", "name": "模拟新增服务点", "category": category, "kind": "候选设施", "node": candidate})
+        after[category] = {
+            n: min(d, lengths[n].get(candidate, math.inf)) for n, d in before[category].items()
+        }
+        relevant.append(
+            {
+                "id": "proposed",
+                "name": "模拟新增服务点",
+                "category": category,
+                "kind": "候选设施",
+                "node": candidate,
+            }
+        )
 
     def reachable_counts(values):
         return {c: sum(d <= threshold for d in values[c].values()) for c in categories}
@@ -72,14 +82,27 @@ def inspect(spec, categories, minutes=15, speed=80, center=None, addition=None):
     for candidate in graph:
         if candidate in targets[weakest]:
             continue
-        gained = sum(d > threshold and lengths[n].get(candidate, math.inf) <= threshold for n, d in before[weakest].items())
+        gained = sum(
+            d > threshold and lengths[n].get(candidate, math.inf) <= threshold
+            for n, d in before[weakest].items()
+        )
         if gained:
-            candidates.append({"node": candidate, "category": weakest, "gain": gained, "before_pct": pct(base_counts[weakest]), "after_pct": pct(base_counts[weakest] + gained)})
+            candidates.append(
+                {
+                    "node": candidate,
+                    "category": weakest,
+                    "gain": gained,
+                    "before_pct": pct(base_counts[weakest]),
+                    "after_pct": pct(base_counts[weakest] + gained),
+                }
+            )
     candidates.sort(key=lambda c: (-c["gain"], c["node"]))
     gaps = [n for n in graph if any(after[c][n] > threshold for c in categories)]
     base_gaps = [n for n in graph if any(before[c][n] > threshold for c in categories)]
     routes = lengths[center]
-    straight = lambda a, b: math.hypot(graph.nodes[a]["x"] - graph.nodes[b]["x"], graph.nodes[a]["y"] - graph.nodes[b]["y"])
+    straight = lambda a, b: math.hypot(
+        graph.nodes[a]["x"] - graph.nodes[b]["x"], graph.nodes[a]["y"] - graph.nodes[b]["y"]
+    )
     reachable = [n for n in graph if routes.get(n, math.inf) <= threshold]
     circle = [n for n in graph if straight(center, n) <= threshold]
     mismatch = [n for n in circle if n not in reachable]
@@ -90,8 +113,11 @@ def inspect(spec, categories, minutes=15, speed=80, center=None, addition=None):
     for kind in KINDS:
         sources = [f["node"] for f in facilities if f["kind"] == kind]
         missing = [n for n in graph if not sources or min(straight(n, s) for s in sources) > 1000]
-        checks.append({"kind": kind, "gap_count": len(missing), "gap_nodes": missing, "facility_count": len(sources)})
+        checks.append(
+            {"kind": kind, "gap_count": len(missing), "gap_nodes": missing, "facility_count": len(sources)}
+        )
     all_distances = [d for c in categories for d in after[c].values() if math.isfinite(d)]
+
     def facility(f):
         distance = routes.get(f["node"])
         return {
@@ -99,31 +125,70 @@ def inspect(spec, categories, minutes=15, speed=80, center=None, addition=None):
             "walk_minutes": round(distance / speed, 1) if distance is not None else None,
             "within_threshold": distance is not None and distance <= threshold,
         }
-    evidence_id = hashlib.sha256((serialized + METHOD_VERSION + json.dumps([categories, minutes, speed, center, addition], ensure_ascii=False, sort_keys=True)).encode()).hexdigest()[:16]
+
+    evidence_id = hashlib.sha256(
+        (
+            serialized
+            + METHOD_VERSION
+            + json.dumps([categories, minutes, speed, center, addition], ensure_ascii=False, sort_keys=True)
+        ).encode()
+    ).hexdigest()[:16]
     return {
-        "mode": "synthetic", "method_version": METHOD_VERSION, "evidence_id": evidence_id,
+        "mode": "synthetic",
+        "method_version": METHOD_VERSION,
+        "evidence_id": evidence_id,
         "community": {"id": spec["id"], "name": spec["name"], "center": center},
-        "source": spec["source"], "dataset_version": spec["version"],
-        "parameters": {"categories": categories, "minutes": minutes, "speed_m_min": speed, "center": center, "addition": addition},
-        "sample_count": total, "facility_count": len(relevant),
-        "coverage": {c: {"count": counts[c], "pct": pct(counts[c]), "before_pct": pct(base_counts[c])} for c in categories},
-        "combined_coverage_pct": pct(total - len(gaps)), "base_combined_coverage_pct": pct(total - len(base_gaps)),
+        "source": spec["source"],
+        "dataset_version": spec["version"],
+        "parameters": {
+            "categories": categories,
+            "minutes": minutes,
+            "speed_m_min": speed,
+            "center": center,
+            "addition": addition,
+        },
+        "sample_count": total,
+        "facility_count": len(relevant),
+        "coverage": {
+            c: {"count": counts[c], "pct": pct(counts[c]), "before_pct": pct(base_counts[c])}
+            for c in categories
+        },
+        "combined_coverage_pct": pct(total - len(gaps)),
+        "base_combined_coverage_pct": pct(total - len(base_gaps)),
         "average_coverage_pct": round(sum(pct(counts[c]) for c in categories) / len(categories), 1),
-        "gap_count": len(gaps), "avg_walk_minutes": round(sum(all_distances) / len(all_distances) / speed, 1) if all_distances else None,
+        "gap_count": len(gaps),
+        "avg_walk_minutes": round(sum(all_distances) / len(all_distances) / speed, 1)
+        if all_distances
+        else None,
         "unreachable_pairs": sum(not math.isfinite(d) for c in categories for d in after[c].values()),
         "missing_categories": [c for c in categories if not targets[c]],
-        "weakest_category": weakest, "recommendations": candidates[:3],
+        "weakest_category": weakest,
+        "recommendations": candidates[:3],
         "facilities": [facility(f) for f in relevant],
-        "reachability": {"network_count": len(reachable), "straight_count": len(circle), "overestimated_count": len(mismatch), "nodes": reachable},
-        "witness": {"from": center, "to": witness, "path": path, "straight_minutes": round(straight(center, witness) / speed, 1), "network_minutes": round(routes[witness] / speed, 1) if witness in routes else None},
+        "reachability": {
+            "network_count": len(reachable),
+            "straight_count": len(circle),
+            "overestimated_count": len(mismatch),
+            "nodes": reachable,
+        },
+        "witness": {
+            "from": center,
+            "to": witness,
+            "path": path,
+            "straight_minutes": round(straight(center, witness) / speed, 1),
+            "network_minutes": round(routes[witness] / speed, 1) if witness in routes else None,
+        },
         "one_km_checks": checks,
-        "map": {"nodes": [{"id": n, **graph.nodes[n], "gap": n in gaps} for n in graph], "spacing_m": spec["spacing_m"]},
+        "map": {
+            "nodes": [{"id": n, **graph.nodes[n], "gap": n in gaps} for n in graph],
+            "spacing_m": spec["spacing_m"],
+        },
         "limitations": [
             "合成路网与设施，不代表上海任何真实社区；本次计算未调用百度 API。",
             "覆盖率的分母是等权路网采样点，不是居民人数、人口覆盖率或土地面积。",
             "步速恒定；未考虑坡度、过街等待、设施容量、开放时段和土地可用性。",
             "1 公里检查按直线距离、原有设施单独统计，不受模拟新增点影响。",
-            "候选点仅按新增可达采样点排序，不构成建设选址结论。"
+            "候选点仅按新增可达采样点排序，不构成建设选址结论。",
         ],
     }
 
@@ -152,9 +217,16 @@ def _raster_for(serialized):
             if x == barrier:
                 continue
             left, top = x * spacing + spacing / 2, y * spacing + spacing / 2
-            draw.rectangle((left + 20, top + 20, left + spacing - 20, top + spacing - 20), fill="#e0e5e4", outline="#d3dbd9", width=2)
+            draw.rectangle(
+                (left + 20, top + 20, left + spacing - 20, top + spacing - 20),
+                fill="#e0e5e4",
+                outline="#d3dbd9",
+                width=2,
+            )
     for a, b in graph.edges:
-        points = [(graph.nodes[n]["x"] + spacing / 2, height - graph.nodes[n]["y"] - spacing / 2) for n in (a, b)]
+        points = [
+            (graph.nodes[n]["x"] + spacing / 2, height - graph.nodes[n]["y"] - spacing / 2) for n in (a, b)
+        ]
         draw.line(points, fill="#bcc9c5", width=14)
         draw.line(points, fill="#ffffff", width=10)
     buffer = BytesIO()
@@ -217,7 +289,9 @@ def report_markdown(result):
         "## 1 公里专项检查（直线距离，原有设施）",
     ]
     for check in result["one_km_checks"]:
-        lines.append(f"- {check['kind']}：{check['facility_count']} 处设施；{check['gap_count']} 个点周边 1 公里无对应样例设施。")
+        lines.append(
+            f"- {check['kind']}：{check['facility_count']} 处设施；{check['gap_count']} 个点周边 1 公里无对应样例设施。"
+        )
     lines += ["", "## 模拟方案"]
     if addition:
         lines += [

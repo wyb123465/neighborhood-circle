@@ -72,7 +72,12 @@ def main() -> int:
                 "address": args.address,
                 "city": args.city,
                 "minutes": args.minutes,
-                "parameters": {"query_profile": args.query_profile, "grid_m": 200, "max_facilities": 10, "selection_strategy": "nearest"},
+                "parameters": {
+                    "query_profile": args.query_profile,
+                    "grid_m": 200,
+                    "max_facilities": 10,
+                    "selection_strategy": "nearest",
+                },
                 "inspect_mode": inspect["mode"],
                 "fixtures": recorder.captured,
             },

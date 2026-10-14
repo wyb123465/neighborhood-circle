@@ -43,7 +43,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="百度地图真实链路验收")
     parser.add_argument("--address", required=True, help="用于地理编码的完整地址，越具体越可靠")
     parser.add_argument("--city", default=None, help="城市名，可省略")
-    parser.add_argument("--profile", default="narrow", choices=sorted(QUERY_PROFILES), help="检索词组画像，默认 narrow 以节省配额")
+    parser.add_argument(
+        "--profile",
+        default="narrow",
+        choices=sorted(QUERY_PROFILES),
+        help="检索词组画像，默认 narrow 以节省配额",
+    )
     parser.add_argument("--routes", type=int, default=3, help="验证的步行路线条数，默认 3")
     parser.add_argument("--radius", type=int, default=1500, help="POI 检索半径（米），默认 1500")
     parser.add_argument("--out-dir", default=str(ROOT / ".runtime"), help="报告输出目录，默认 .runtime")
@@ -54,7 +59,9 @@ def main() -> int:
 
     if not config.ak:
         print("未配置 BAIDU_MAP_AK，未发起任何外部请求。", file=sys.stderr)
-        print("请先把 AK 写入项目根目录的 .env。申请步骤见 docs/ak-application-checklist.md。", file=sys.stderr)
+        print(
+            "请先把 AK 写入项目根目录的 .env。申请步骤见 docs/ak-application-checklist.md。", file=sys.stderr
+        )
         return 2
 
     profile = QUERY_PROFILES[args.profile]
@@ -63,11 +70,15 @@ def main() -> int:
     official_endpoint = config.base_url.rstrip("/") == OFFICIAL_BASE_URL
 
     print(f"AK 已配置（{len(config.ak)} 字符，不予显示）")
-    print(f"base_url={config.base_url}  地点检索版本={config.place_api_version}  超时={config.timeout_seconds}s")
+    print(
+        f"base_url={config.base_url}  地点检索版本={config.place_api_version}  超时={config.timeout_seconds}s"
+    )
     print(f"检索词组画像={args.profile}，检索词：{'、'.join(queries)}")
     print(f"预计调用：1 次地理编码 + {len(queries)} 次地点检索 + 最多 {route_budget} 次步行路线")
     if not official_endpoint:
-        print(f"!! base_url 不是官方地址（{OFFICIAL_BASE_URL}），本次结果属于仿真环境，不得当作真实百度数据。")
+        print(
+            f"!! base_url 不是官方地址（{OFFICIAL_BASE_URL}），本次结果属于仿真环境，不得当作真实百度数据。"
+        )
     print("-" * 60)
 
     maps = BaiduMapsClient(config)
@@ -78,7 +89,9 @@ def main() -> int:
 
     report.append("# 百度地图真实链路验收报告\n")
     if official_endpoint:
-        report.append(f"**本报告由 `scripts/check_live.py` 对官方接口 {OFFICIAL_BASE_URL} 实际调用生成，是一次真实外部调用。**\n")
+        report.append(
+            f"**本报告由 `scripts/check_live.py` 对官方接口 {OFFICIAL_BASE_URL} 实际调用生成，是一次真实外部调用。**\n"
+        )
     else:
         report.append(
             f"**⚠️ 仿真环境：base_url 为 `{config.base_url}`，不是官方地址 `{OFFICIAL_BASE_URL}`。**\n\n"
@@ -90,16 +103,18 @@ def main() -> int:
     report.append(f"- 检索词组画像：`{args.profile}`")
     report.append(f"- 调用方式：顺序，非并发\n")
     report.append("## 配置\n")
-    report.append(markdown_table(
-        ["项", "值"],
-        [
-            ["base_url", config.base_url],
-            ["地点检索版本", config.place_api_version],
-            ["单请求超时(秒)", config.timeout_seconds],
-            ["缓存 TTL(秒)", config.cache_ttl_seconds],
-            ["并发上限", config.max_concurrency],
-        ],
-    ))
+    report.append(
+        markdown_table(
+            ["项", "值"],
+            [
+                ["base_url", config.base_url],
+                ["地点检索版本", config.place_api_version],
+                ["单请求超时(秒)", config.timeout_seconds],
+                ["缓存 TTL(秒)", config.cache_ttl_seconds],
+                ["并发上限", config.max_concurrency],
+            ],
+        )
+    )
 
     # 步骤 1：地理编码
     report.append("## 步骤 1：地理编码\n")
@@ -111,17 +126,19 @@ def main() -> int:
         elapsed = (time.perf_counter() - step) * 1000
         center = geocoded["location"]
         print(f"[1/3] 地理编码 OK：{center['lng']}, {center['lat']}（{elapsed:.0f} ms）")
-        report.append(markdown_table(
-            ["字段", "值"],
-            [
-                ["location", f"{center['lng']}, {center['lat']}"],
-                ["precise（是否精确）", geocoded.get("precise")],
-                ["confidence（置信度）", geocoded.get("confidence")],
-                ["comprehension（解析度）", geocoded.get("comprehension")],
-                ["level（级别）", geocoded.get("level")],
-                ["耗时(ms)", round(elapsed, 1)],
-            ],
-        ))
+        report.append(
+            markdown_table(
+                ["字段", "值"],
+                [
+                    ["location", f"{center['lng']}, {center['lat']}"],
+                    ["precise（是否精确）", geocoded.get("precise")],
+                    ["confidence（置信度）", geocoded.get("confidence")],
+                    ["comprehension（解析度）", geocoded.get("comprehension")],
+                    ["level（级别）", geocoded.get("level")],
+                    ["耗时(ms)", round(elapsed, 1)],
+                ],
+            )
+        )
     except BaiduApiError as error:
         print(f"[1/3] 地理编码失败：{error}", file=sys.stderr)
         failures.append(f"地理编码：{error}")
@@ -139,7 +156,9 @@ def main() -> int:
             try:
                 counts["pois"] += 1
                 step = time.perf_counter()
-                pois = maps.search_pois(location=center, query=query, radius_m=args.radius, city_limit=bool(args.city))
+                pois = maps.search_pois(
+                    location=center, query=query, radius_m=args.radius, city_limit=bool(args.city)
+                )
                 elapsed = (time.perf_counter() - step) * 1000
                 found.extend(pois)
                 rows.append([query, len(pois), round(elapsed, 1)])
@@ -173,17 +192,32 @@ def main() -> int:
             try:
                 counts["routes"] += 1
                 step = time.perf_counter()
-                route = maps.walking_route(origin=center, destination=poi["location"], destination_uid=poi.get("uid"))
+                route = maps.walking_route(
+                    origin=center, destination=poi["location"], destination_uid=poi.get("uid")
+                )
                 elapsed = (time.perf_counter() - step) * 1000
                 duration = route.get("duration_s")
                 minutes = round(duration / 60, 1) if duration is not None else None
-                rows.append([poi.get("name"), route.get("distance_m"), duration, minutes, len(route.get("steps") or []), round(elapsed, 1)])
-                print(f"[3/3] 步行路线「{poi.get('name')}」：{route.get('distance_m')} m / {duration} s（{elapsed:.0f} ms）")
+                rows.append(
+                    [
+                        poi.get("name"),
+                        route.get("distance_m"),
+                        duration,
+                        minutes,
+                        len(route.get("steps") or []),
+                        round(elapsed, 1),
+                    ]
+                )
+                print(
+                    f"[3/3] 步行路线「{poi.get('name')}」：{route.get('distance_m')} m / {duration} s（{elapsed:.0f} ms）"
+                )
             except BaiduApiError as error:
                 rows.append([poi.get("name"), "失败", "", "", "", str(error)])
                 failures.append(f"步行路线 {poi.get('name')}：{error}")
                 print(f"[3/3] 步行路线「{poi.get('name')}」失败：{error}", file=sys.stderr)
-        report.append(markdown_table(["设施", "距离(m)", "耗时(s)", "约分钟", "分段数", "请求耗时(ms)"], rows))
+        report.append(
+            markdown_table(["设施", "距离(m)", "耗时(s)", "约分钟", "分段数", "请求耗时(ms)"], rows)
+        )
         report.append(
             "> API 返回的 `duration` 是步行接口自己的估计，**不得**改写成本项目合成算法里的固定步速；"
             "两者在报告中必须分开表述。\n"
@@ -193,17 +227,19 @@ def main() -> int:
     total_elapsed = (time.perf_counter() - started) * 1000
     total_calls = sum(counts.values())
     report.append("## 汇总\n")
-    report.append(markdown_table(
-        ["项目", "值"],
-        [
-            ["地理编码调用", counts["geocode"]],
-            ["地点检索调用", counts["pois"]],
-            ["步行路线调用", counts["routes"]],
-            ["合计调用", total_calls],
-            ["总耗时(ms)", round(total_elapsed, 1)],
-            ["失败项", len(failures)],
-        ],
-    ))
+    report.append(
+        markdown_table(
+            ["项目", "值"],
+            [
+                ["地理编码调用", counts["geocode"]],
+                ["地点检索调用", counts["pois"]],
+                ["步行路线调用", counts["routes"]],
+                ["合计调用", total_calls],
+                ["总耗时(ms)", round(total_elapsed, 1)],
+                ["失败项", len(failures)],
+            ],
+        )
+    )
     if failures:
         report.append("### 失败明细\n")
         report.extend(f"- {item}" for item in failures)

@@ -1,2 +1,1 @@
 """Neighbourhood inspection API package."""
-

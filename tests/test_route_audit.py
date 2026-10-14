@@ -15,9 +15,14 @@ def make_pair(label="样例", dx=0.0, dy=800.0):
     from backend.live_isochrone import METERS_PER_DEG_LAT, lng_scale
 
     return {
-        "kind": "网格-测试", "label": label, "category": "采样点",
+        "kind": "网格-测试",
+        "label": label,
+        "category": "采样点",
         "origin": dict(CENTER),
-        "destination": {"lat": CENTER["lat"] + dy / METERS_PER_DEG_LAT, "lng": CENTER["lng"] + dx / lng_scale(CENTER["lat"])},
+        "destination": {
+            "lat": CENTER["lat"] + dy / METERS_PER_DEG_LAT,
+            "lng": CENTER["lng"] + dx / lng_scale(CENTER["lat"]),
+        },
     }
 
 
@@ -39,7 +44,9 @@ def test_audit_flags_distance_shorter_than_straight_line():
 
 def test_audit_passes_physically_plausible_route():
     pair = make_pair(dx=600, dy=0)  # 直线 600m
-    row = audit_one(pair, {"distance_m": 750, "duration_s": 600, "steps": [{"distance_m": 400}, {"distance_m": 350}]})
+    row = audit_one(
+        pair, {"distance_m": 750, "duration_s": 600, "steps": [{"distance_m": 400}, {"distance_m": 350}]}
+    )
     assert row["verdict"] == "自动通过"
     assert row["flags"] == []
     assert row["detour_ratio"] == 1.25
@@ -61,17 +68,47 @@ def test_reverse_symmetry_check():
 
 
 def test_build_pairs_balances_facilities_and_both_sides_of_boundary():
-    inspect = {"facilities": [
-        {"name": "设施A", "categories": ["医疗"], "location": {"lat": 31.23, "lng": 121.44}},
-        {"name": "设施B", "categories": ["养老"], "location": {"lat": 31.22, "lng": 121.43}},
-    ]}
+    inspect = {
+        "facilities": [
+            {"name": "设施A", "categories": ["医疗"], "location": {"lat": 31.23, "lng": 121.44}},
+            {"name": "设施B", "categories": ["养老"], "location": {"lat": 31.22, "lng": 121.43}},
+        ]
+    }
     isochrone = {
         "center": dict(CENTER),
         "points": [
-            {"dx_m": 0, "dy_m": 675, "lat": 31.231, "lng": 121.4356, "status": "reachable", "duration_s": 500},
-            {"dx_m": 1350, "dy_m": 0, "lat": 31.225, "lng": 121.4477, "status": "unreachable", "duration_s": 1100},
-            {"dx_m": 675, "dy_m": 675, "lat": 31.231, "lng": 121.442, "status": "reachable", "duration_s": 730},
-            {"dx_m": 1350, "dy_m": 675, "lat": 31.231, "lng": 121.4477, "status": "unreachable", "duration_s": 1000},
+            {
+                "dx_m": 0,
+                "dy_m": 675,
+                "lat": 31.231,
+                "lng": 121.4356,
+                "status": "reachable",
+                "duration_s": 500,
+            },
+            {
+                "dx_m": 1350,
+                "dy_m": 0,
+                "lat": 31.225,
+                "lng": 121.4477,
+                "status": "unreachable",
+                "duration_s": 1100,
+            },
+            {
+                "dx_m": 675,
+                "dy_m": 675,
+                "lat": 31.231,
+                "lng": 121.442,
+                "status": "reachable",
+                "duration_s": 730,
+            },
+            {
+                "dx_m": 1350,
+                "dy_m": 675,
+                "lat": 31.231,
+                "lng": 121.4477,
+                "status": "unreachable",
+                "duration_s": 1000,
+            },
         ],
     }
     pairs = build_pairs(inspect, isochrone, total=4)
@@ -90,7 +127,7 @@ def test_build_pairs_balances_facilities_and_both_sides_of_boundary():
 def test_build_pairs_uses_requested_threshold_for_boundary_sampling():
     inspect = {"facilities": []}
     isochrone = {
-            "center": dict(CENTER),
+        "center": dict(CENTER),
         "points": [
             {"dx_m": 0, "dy_m": 0, "lat": 31.225, "lng": 121.4356, "status": "reachable", "duration_s": 550},
             {"dx_m": 600, "dy_m": 0, "lat": 31.225, "lng": 121.442, "status": "reachable", "duration_s": 600},

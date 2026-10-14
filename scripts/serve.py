@@ -1,4 +1,5 @@
 """Explicit launch modes: offline sample, live API, or private replay."""
+
 from __future__ import annotations
 
 import argparse
@@ -12,7 +13,12 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     parser = argparse.ArgumentParser(description="邻里圈启动器")
     parser.add_argument("--mode", choices=("synthetic", "live", "replay", "assistant"), default="synthetic")
-    parser.add_argument("--map-mode", choices=("synthetic", "live", "replay"), default="synthetic", help="assistant 模式中的地图来源")
+    parser.add_argument(
+        "--map-mode",
+        choices=("synthetic", "live", "replay"),
+        default="synthetic",
+        help="assistant 模式中的地图来源",
+    )
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--replay-file", default=str(ROOT / ".runtime/replay/fixtures.json"))
@@ -40,6 +46,7 @@ def main():
     from backend.baidu import BaiduConfig, BaiduMapsClient
     from backend.main import app
     import uvicorn
+
     if maps_mode == "live" and not BaiduConfig.from_env().ak:
         parser.error("live 模式需要在本地 .env 配置 BAIDU_MAP_AK。")
     if maps_mode == "replay":

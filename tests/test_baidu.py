@@ -55,8 +55,18 @@ def test_place_search_paginates_and_deduplicates_uids():
         page = request.url.params["page_num"]
         if page == "0":
             data = [
-                {"uid": "a", "name": "样例药店 A", "address": "甲路", "location": {"lng": 121.4, "lat": 31.2}},
-                {"uid": "duplicate", "name": "重复设施", "address": "乙路", "location": {"lng": 121.41, "lat": 31.21}},
+                {
+                    "uid": "a",
+                    "name": "样例药店 A",
+                    "address": "甲路",
+                    "location": {"lng": 121.4, "lat": 31.2},
+                },
+                {
+                    "uid": "duplicate",
+                    "name": "重复设施",
+                    "address": "乙路",
+                    "location": {"lng": 121.41, "lat": 31.21},
+                },
             ]
             data.extend(
                 {
@@ -69,8 +79,18 @@ def test_place_search_paginates_and_deduplicates_uids():
             )
         else:
             data = [
-                {"uid": "duplicate", "name": "重复设施", "address": "乙路", "location": {"lng": 121.41, "lat": 31.21}},
-                {"uid": "b", "name": "样例药店 B", "address": "丙路", "location": {"lng": 121.42, "lat": 31.22}},
+                {
+                    "uid": "duplicate",
+                    "name": "重复设施",
+                    "address": "乙路",
+                    "location": {"lng": 121.41, "lat": 31.21},
+                },
+                {
+                    "uid": "b",
+                    "name": "样例药店 B",
+                    "address": "丙路",
+                    "location": {"lng": 121.42, "lat": 31.22},
+                },
             ]
         return httpx.Response(200, json={"status": 0, "results": data})
 
@@ -117,7 +137,10 @@ def test_place_v2_can_be_selected_explicitly():
         assert request.url.path == "/place/v2/search"
         return httpx.Response(
             200,
-            json={"status": 0, "results": [{"uid": "v2-a", "name": "V2 设施", "location": {"lng": 121.4, "lat": 31.2}}]},
+            json={
+                "status": 0,
+                "results": [{"uid": "v2-a", "name": "V2 设施", "location": {"lng": 121.4, "lat": 31.2}}],
+            },
         )
 
     result = client_for(handler, place_api_version="v2", max_place_pages=1).search_pois(
@@ -143,7 +166,13 @@ def test_walking_route_keeps_distance_duration_and_steps():
                             "distance": 1240,
                             "duration": 930,
                             "steps": [
-                                {"distance": 500, "duration": 360, "instructions": "向东", "name": "愚园路", "path": "121.42,31.21"},
+                                {
+                                    "distance": 500,
+                                    "duration": 360,
+                                    "instructions": "向东",
+                                    "name": "愚园路",
+                                    "path": "121.42,31.21",
+                                },
                             ],
                         }
                     ]
@@ -334,7 +363,10 @@ def test_walking_route_matrix_marks_row_errors_without_failing_the_batch():
             json={
                 "status": 0,
                 "result": [
-                    {"distance": {"value": 500, "text": "500米"}, "duration": {"value": 600, "text": "10分钟"}},
+                    {
+                        "distance": {"value": 500, "text": "500米"},
+                        "duration": {"value": 600, "text": "10分钟"},
+                    },
                     {"status": 1, "message": "起终点过近"},
                 ],
             },
@@ -368,7 +400,10 @@ def test_walking_route_matrix_chunks_to_pair_limit_and_keeps_alignment():
         pairs = request.url.params["destinations"].split("|")
         calls.append(len(pairs))
         rows = [
-            {"distance": {"value": int(round(float(pair.split(",")[0]) * 10000)), "text": "x"}, "duration": {"value": 600, "text": "x"}}
+            {
+                "distance": {"value": int(round(float(pair.split(",")[0]) * 10000)), "text": "x"},
+                "duration": {"value": 600, "text": "x"},
+            }
             for pair in pairs
         ]
         return httpx.Response(200, json={"status": 0, "result": rows})
@@ -382,7 +417,9 @@ def test_walking_route_matrix_chunks_to_pair_limit_and_keeps_alignment():
 
     assert calls == [3, 3, 1], f"matrix_pairs=3 时 7 个终点应拆成 3+3+1 对的三次请求，实际 {calls}"
     assert all(pairs <= 3 for pairs in calls), "任何一次请求的对数都不得超过 3（并发上限）"
-    assert [row["distance_m"] for row in result] == [int(round(d["lat"] * 10000)) for d in destinations], "拆块合并后行序必须与请求顺序一致"
+    assert [row["distance_m"] for row in result] == [int(round(d["lat"] * 10000)) for d in destinations], (
+        "拆块合并后行序必须与请求顺序一致"
+    )
 
 
 def test_matrix_chunks_are_spaced_by_pair_weight():
@@ -399,7 +436,10 @@ def test_matrix_chunks_are_spaced_by_pair_weight():
 
     def handler(request: httpx.Request):
         count = len(request.url.params["destinations"].split("|"))
-        rows = [{"distance": {"value": 1, "text": "x"}, "duration": {"value": 60, "text": "x"}} for _ in range(count)]
+        rows = [
+            {"distance": {"value": 1, "text": "x"}, "duration": {"value": 60, "text": "x"}}
+            for _ in range(count)
+        ]
         return httpx.Response(200, json={"status": 0, "result": rows})
 
     maps = BaiduMapsClient(
@@ -408,7 +448,10 @@ def test_matrix_chunks_are_spaced_by_pair_weight():
         clock=clock,
         sleep=fake_sleep,
     )
-    for dests in ([{"lat": 31.21, "lng": 121.41}, {"lat": 31.22, "lng": 121.42}], [{"lat": 31.51, "lng": 121.41}, {"lat": 31.52, "lng": 121.42}]):
+    for dests in (
+        [{"lat": 31.21, "lng": 121.41}, {"lat": 31.22, "lng": 121.42}],
+        [{"lat": 31.51, "lng": 121.41}, {"lat": 31.52, "lng": 121.42}],
+    ):
         maps.walking_route_matrix(origin={"lat": 31.2, "lng": 121.4}, destinations=dests)
 
     assert sleeps == [0.5], f"每个 2 对块应把发起时刻推后 2/4 秒，实际 {sleeps}"

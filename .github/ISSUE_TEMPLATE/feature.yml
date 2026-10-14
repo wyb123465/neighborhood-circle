@@ -1,0 +1,17 @@
+name: 改进提案
+description: 说明实际问题和可验证的改善目标
+title: "[提案] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 谁在什么场景遇到了什么问题？
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议方案与验收方式
+      description: 请说明数据来源、计算口径、调用成本和需要保留的未知状态。
+    validations:
+      required: true
