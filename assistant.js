@@ -335,7 +335,11 @@ function renderEvidence(analysis, comparison = []) {
   }
   ui.map.fitBounds(ui.bounds, { padding: [20, 20], animate: false });
   const center = isSynthetic ? r.map.nodes.find((n) => n.id === r.parameters.center) : { x: 0, y: 0 };
-  if (center) point(center.x, center.y, '体检中心', '#142b22', 9, ui.layer);
+  if (center) {
+    ui.originMarker = point(center.x, center.y, '体检中心', '#142b22', 9, ui.layer);
+    if (!isSynthetic)
+      ui.originMarker.bindTooltip(tooltip('起点 · 体检中心'), { permanent: true, direction: 'right' });
+  }
   comparison.forEach((row, index) => {
     const icon = L.divIcon({
       className: '',

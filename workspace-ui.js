@@ -144,6 +144,12 @@ function renderScenarios(value) {
 }
 function renderFacilities(analysis) {
   const r = analysis.inspection;
+  $('#routeOrigin').hidden = analysis.type !== 'live';
+  if (analysis.type === 'live') {
+    text('#routeOriginName', '步行起点：' + (r.community.address || r.community.name || '本次体检中心'));
+    const center = r.community.center;
+    text('#routeOriginCoordinates', `经度 ${center.lng.toFixed(6)}，纬度 ${center.lat.toFixed(6)}（BD-09）`);
+  }
   text('#facilityListCount', `(${r.facilities.length})`);
   $('#facilityList').replaceChildren(
     ...r.facilities.map((f, index) => {
@@ -151,34 +157,44 @@ function renderFacilities(analysis) {
       b.type = 'button';
       b.append(
         element('strong', f.name),
-        element('span', (f.route?.walk_minutes ?? f.walk_minutes ?? '未知') + ' 分钟'),
+        element(
+          'span',
+          (analysis.type === 'live' ? '起点步行 ' : '') +
+            (f.route?.walk_minutes ?? f.walk_minutes ?? '未知') +
+            ' 分钟',
+        ),
       );
       b.addEventListener('click', () => focusFacility(index));
       return b;
     }),
   );
 }
-function focusFacility(index) {
+async function focusFacility(index) {
   const a = ui.analysis,
     f = a?.inspection.facilities[index];
   if (!f) return;
-  setResultsView('map');
-  ui.map.invalidateSize();
+  const focusSerial = (ui.focusSerial || 0) + 1;
+  ui.focusSerial = focusSerial;
+  await ui.geoReady;
+  if (ui.analysis !== a || focusSerial !== ui.focusSerial) return;
   if (!ui.layer.hasLayer(ui.groups.facilities)) ui.groups.facilities.addTo(ui.layer);
   document.querySelector('[data-layer="facilities"]').setAttribute('aria-pressed', 'true');
   const marker = ui.facilityMarkers[index];
-  if (marker) {
-    ui.map.setView(marker.getLatLng(), ui.map.getZoom(), { animate: false });
-    marker.openTooltip();
-  }
-  ui.geo?.focusFacility(index);
+  setResultsView('map', () => {
+    if (ui.analysis !== a || focusSerial !== ui.focusSerial) return;
+    if (marker) {
+      ui.map.setView(marker.getLatLng(), ui.map.getZoom(), { animate: false });
+      marker.openTooltip();
+    }
+    ui.geo?.focusFacility(index);
+  });
   const detail = $('#facilityDetails');
   detail.hidden = false;
   const route = f.route || f,
     minutes = route.walk_minutes,
     within = route.within_threshold;
   detail.replaceChildren(
-    element('h4', f.name),
+    element('h4', (a.type === 'live' ? '终点：' : '') + f.name),
     element(
       'p',
       (f.eligible_categories || f.categories || [f.category]).join('、') +
@@ -198,6 +214,12 @@ function focusFacility(index) {
     element('small', '证据 ' + a.inspection.evidence_id),
   );
   if (a.type === 'live') {
+    const center = a.inspection.community.center;
+    detail.append(
+      element('p', '起点：' + (a.inspection.community.address || '本次体检中心')),
+      element('small', `起点 BD-09：${center.lng.toFixed(6)}, ${center.lat.toFixed(6)}`),
+      element('small', `终点 BD-09：${f.location.lng.toFixed(6)}, ${f.location.lat.toFixed(6)}`),
+    );
     const url = officialRouteUrl(a.inspection.community.center, f.location, a.inspection.community.city);
     if (url) {
       const link = element('a', '到百度地图核对同一起终点 ↗');
@@ -209,6 +231,21 @@ function focusFacility(index) {
   } else detail.append(element('small', '合成节点 ' + f.node + '，没有对应的真实地理坐标。'));
   detail.scrollIntoView({ block: 'nearest' });
 }
+$('#locateRouteOrigin').addEventListener('click', async () => {
+  const a = ui.analysis;
+  if (a?.type !== 'live') return;
+  const focusSerial = (ui.focusSerial || 0) + 1;
+  ui.focusSerial = focusSerial;
+  await ui.geoReady;
+  if (ui.analysis !== a || focusSerial !== ui.focusSerial) return;
+  setResultsView('map', () => {
+    if (ui.analysis !== a || focusSerial !== ui.focusSerial) return;
+    ui.map.setView([0, 0], ui.map.getZoom(), { animate: false });
+    ui.originMarker?.openTooltip();
+    ui.geo?.focusOrigin();
+    (ui.geo?.active ? ui.geo.canvas : $('#assistantMap')).scrollIntoView({ block: 'center' });
+  });
+});
 function reviewTasks() {
   const a = ui.result?.analysis;
   if (!a) return [];

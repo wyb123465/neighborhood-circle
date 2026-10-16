@@ -94,6 +94,11 @@
       .map((r) => ({ ...r, point: offsetToBD(center, r.x, r.y) }));
     return {
       center,
+      origin: {
+        point: center,
+        title: '起点 · ' + (inspection.community.address || inspection.community.name || '体检中心'),
+        detail: `本次设施步行耗时从此处出发。BD-09：${center.lng.toFixed(6)}, ${center.lat.toFixed(6)}；地址定位点的实际入口待核验。`,
+      },
       extent,
       samples,
       gaps,
@@ -243,7 +248,7 @@
     }
     draw(sdk) {
       this.map.clearOverlays();
-      this.overlays = { samples: [], gaps: [], review: [], facilities: [], candidates: [] };
+      this.overlays = { samples: [], gaps: [], review: [], facilities: [], candidates: [], origin: [] };
       this.facilityRows = new Map();
       const point = (p) => new sdk.Point(p.lng, p.lat);
       const add = (group, overlay, row) => {
@@ -296,15 +301,29 @@
           if (group === 'facilities') this.facilityRows.set(row.index, row);
         }
       add(
-        'facilities',
+        'origin',
         new sdk.Circle(point(this.scene.center), 12, {
           strokeColor: '#fff',
           fillColor: '#142b22',
           strokeWeight: 2,
           fillOpacity: 1,
         }),
-        { point: this.scene.center, title: '本次体检中心', detail: '坐标 BD-09；设施统计以此中心算路。' },
+        this.scene.origin,
       );
+      const originLabel = new sdk.Label('起点 · 体检中心', {
+        position: point(this.scene.center),
+        offset: new sdk.Size(12, -25),
+      });
+      originLabel.setStyle({
+        color: '#142b22',
+        backgroundColor: '#fff',
+        border: '1px solid #197257',
+        borderRadius: '4px',
+        padding: '4px 8px',
+        fontSize: '12px',
+      });
+      originLabel.setZIndex(1000);
+      add('origin', originLabel, this.scene.origin);
       for (const [group, visible] of Object.entries(this.visibleGroups)) this.toggle(group, visible);
     }
     open(row) {
@@ -322,6 +341,13 @@
       this.toggle('facilities', true);
       this.map.setCenter(new root.BMapGL.Point(row.point.lng, row.point.lat), { noAnimation: true });
       this.open(row);
+    }
+    focusOrigin() {
+      if (!this.active || !this.scene) return;
+      this.map.setCenter(new root.BMapGL.Point(this.scene.center.lng, this.scene.center.lat), {
+        noAnimation: true,
+      });
+      this.open(this.scene.origin);
     }
     focusOffset(x, y) {
       if (!this.active || !this.scene) return;

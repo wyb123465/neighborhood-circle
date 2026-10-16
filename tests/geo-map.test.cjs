@@ -45,6 +45,11 @@ function displayHarness() {
     },
     Polygon: Overlay,
     Circle: Overlay,
+    Label: class extends Overlay {
+      setStyle() {}
+      setZIndex() {}
+    },
+    Size: class {},
     InfoWindow: class {
       constructor(html) {
         this.html = html;
@@ -60,7 +65,9 @@ function displayHarness() {
         overlays.push(o);
       }
       setViewport() {}
-      setCenter() {}
+      setCenter(point) {
+        this.center = point;
+      }
       openInfoWindow(info) {
         this.info = info;
       }
@@ -170,6 +177,12 @@ test('geographic layer toggles work and vendor POI text cannot become HTML', asy
     assert.equal(view.active, true);
     view.toggle('facilities', false);
     assert.ok(view.overlays.facilities.every((o) => !o.visible));
+    assert.equal(view.overlays.origin.length, 2);
+    assert.ok(view.overlays.origin.every((o) => o.visible));
+    view.focusOrigin();
+    assert.equal(view.map.center.lng, center.lng);
+    assert.equal(view.map.center.lat, center.lat);
+    assert.ok(view.map.info.html.includes('起点'));
     view.focusFacility(0);
     assert.ok(view.overlays.facilities.every((o) => o.visible));
     assert.ok(view.map.info.html.includes('&lt;img'));
