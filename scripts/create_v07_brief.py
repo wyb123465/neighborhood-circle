@@ -1,5 +1,8 @@
 """Versioned three-page brief with a vector architecture diagram."""
 
+import argparse
+from datetime import date
+import json
 from pathlib import Path
 
 from reportlab.lib import colors
@@ -85,8 +88,16 @@ class Architecture(Flowable):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--date", type=date.fromisoformat, default=date.today())
+    parser.add_argument("--output", type=Path, default=ROOT / "output/pdf/邻里圈-v0.7-项目介绍.pdf")
+    parser.add_argument("--author", default="项目维护：wyb123465（GitHub）")
+    parser.add_argument("--preflight", type=Path)
+    args = parser.parse_args()
+    checks = json.loads(args.preflight.read_text(encoding="utf-8")) if args.preflight else {}
+    sdk_verified = checks.get("browser_sdk_verified") is True
     body.textColor = small.textColor = INK
-    output = ROOT / "output/pdf/邻里圈-v0.7-项目介绍.pdf"
+    output = args.output
     screenshot = ROOT / "assets/screenshots/workspace-v07.png"
     if not screenshot.is_file():
         raise SystemExit("请先保存新版实际工作台截图")
@@ -95,7 +106,7 @@ def main():
         Paragraph("邻里圈", title),
         Paragraph("15分钟生活圈智能体检与规划助手", subtitle),
         p("2026上海开源软件应用创新大赛 · 开源AI工具赛道 · 百度地图企业命题", body),
-        p("版本0.7.0 · 2026-10-14 · 团队署名待填写", small),
+        p(f"版本0.7.0 · 提交复核 {args.date.isoformat()} · {args.author}", small),
     ]
     story += section_heading("1. 从服务缺口到可核验的改善参考")
     story += [
@@ -161,7 +172,12 @@ def main():
         ),
         Spacer(1, 3 * mm),
         p(
-            "路线采样不恢复精确连通边界；中心到设施比例不是居民覆盖率。候选点不证明地块可建、容量或建设收益。真实地图接入代码已加入，实际道路展示还需浏览器AK及SDK联调确认。",
+            "路线采样不恢复精确连通边界；中心到设施比例不是居民覆盖率。候选点不证明地块可建、容量或建设收益。"
+            + (
+                "百度道路底图与BD-09测时图层已完成浏览器核对。"
+                if sdk_verified
+                else "地理地图接入已实现，实际道路展示仍需独立浏览器AK与SDK联调确认。"
+            ),
             body,
         ),
         PageBreak(),
@@ -175,16 +191,23 @@ def main():
                     "工程检查",
                     "独立源码123项Python测试全部通过、无跳过；21项前端测试通过。源码扫描、HTTP启动与无密钥路径均通过。",
                 ],
-                ["真实AI链路", "10月14日既有5条真实模型场景通过，其中45次当前百度请求；不把Mock当真实联调。"],
+                [
+                    "真实AI链路",
+                    f"{args.date.isoformat()}提交前复测：{checks.get('model_cases_passed', 0)}/{checks.get('model_cases_total', 5)}条模型场景通过，实时场景{checks.get('model_live_requests', 0)}次地图请求；基础接口{checks.get('live_checks_passed', 0)}次调用通过。"
+                    if checks
+                    else "10月14日5条真实模型场景通过，其中45次地图请求；数据与时点分别标明。",
+                ],
                 [
                     "新增缓存基准",
-                    "同输入8处设施：冷查询14.05秒/15次请求，热查询3.6毫秒/0次新请求，证据编号一致。仅为单次本机缓存对照。",
+                    "10月14日同输入8处设施：冷查询14.05秒/15次请求，热查询3.6毫秒/0次新请求，证据一致。仅为单次本机缓存样本。",
                 ],
                 ["路线对照", "20条同平台网页对照，17条阈值一致、3条分歧保留；不称实地准确率。"],
                 ["POI核验", "3个政府资料正向类别样本、1个培训误命中排除；营业状态、入口和缺口仍需独立核验。"],
                 [
                     "地理呈现",
-                    "专用浏览器AK、BD-09网格/设施/灰格叠加及失败示意已实现；实际SDK验收状态见当前验收文档。",
+                    "百度道路底图、测时网格、设施和灰格已在浏览器核对；实际交互见演示录屏。"
+                    if sdk_verified
+                    else "BD-09网格/设施/灰格叠加接入已实现，底图尚待配置；保留测时示意和官方核对入口。",
                 ],
             ],
             [32 * mm, 136 * mm],
@@ -198,11 +221,11 @@ def main():
             body,
         ),
         p(
-            "完整社区验证方案与空白记录模板随源码提供。仍需团队确认具体社区归属、补充独立入口/营业/盲区参照及真实署名；上传视频取得可访问链接，再按报名确认邮件提交。",
+            "真实样区验证汇总、独立核验方案和记录格式随源码提供。现实入口、营业状态和盲区准确性仍需独立参照；本项目目前提供API证据与可复算分析，未宣称完成社区现场验收。",
             body,
         ),
         p(
-            "介绍视频为实际界面截图分步讲解，配合合成中文解说与字幕，不是连续录屏。模型、实时地图与历史回放依赖分别标明；公开源码不含密钥、原始私有响应或其他参赛项目。",
+            "默认合成模式无需密钥即可运行。模型、实时地图与历史回放依赖分别标明；公开源码不含密钥、原始私有响应或其他参赛项目。参赛人信息及最终演示视频链接以报名表和提交邮件为准。",
             body,
         ),
         p(
@@ -211,9 +234,7 @@ def main():
         ),
     ]
     output.parent.mkdir(parents=True, exist_ok=True)
-    BriefDocTemplate(str(output), title="邻里圈0.7项目介绍", author="邻里圈项目团队（署名待填写）").build(
-        story
-    )
+    BriefDocTemplate(str(output), title="邻里圈0.7项目介绍", author=args.author).build(story)
     print(output)
 
 

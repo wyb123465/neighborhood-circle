@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import argparse
+from datetime import date
 import zipfile
 from pathlib import Path
 
@@ -24,7 +25,13 @@ FILES = {
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--version", choices=("0.4.1", "0.5.0-beta", "0.6.0", "0.7.0"), default="0.7.0")
+    parser.add_argument("--without-video", action="store_true", help="生成待补新视频的资料包，不加入旧视频")
+    parser.add_argument("--recording", type=Path, help="参赛人重新录制的视频路径")
+    parser.add_argument("--brief", type=Path, help="本次定稿介绍PDF")
+    parser.add_argument("--submission-date", type=date.fromisoformat)
     args = parser.parse_args()
+    if args.without_video and args.recording:
+        parser.error("--without-video和--recording不能同时使用")
     files = dict(FILES)
     if args.version == "0.5.0-beta":
         files.update(
@@ -67,6 +74,16 @@ def main():
                 "16-技术设计.md": "docs/technical-design.md",
             }
         )
+    if args.brief:
+        files["01-项目介绍.pdf"] = str(args.brief)
+    if args.without_video or args.recording:
+        files.pop("03-解说字幕.srt", None)
+        files.pop("02-演示视频.mp4", None)
+    if args.recording:
+        files["02-演示视频.mp4"] = str(args.recording)
+    if args.submission_date:
+        files["17-提交前复核.md"] = "docs/preflight-2026-10-16.md"
+        files["18-录制提纲.md"] = "docs/recording-final.md"
     for relative in files.values():
         source = ROOT / relative
         if not source.is_file() or not source.stat().st_size:
@@ -79,7 +96,16 @@ def main():
         )
     output = ROOT / "output/submission"
     output.mkdir(parents=True, exist_ok=True)
-    target = output / f"邻里圈-v{args.version}-提交材料.zip"
+    kind = "提交前材料" if args.without_video else "提交材料"
+    suffix = f"-{args.submission_date.isoformat()}" if args.submission_date else ""
+    target = output / f"邻里圈-v{args.version}-{kind}{suffix}.zip"
+    video_note = (
+        "本包不含旧视频。录制新视频后，请上传并填写可访问链接；如需附视频文件，用--recording重新打包。"
+        if args.without_video
+        else "使用参赛人提供的新录屏。"
+        if args.recording
+        else "视频为既有实际截图分步讲解，不是连续录屏。"
+    )
     checksums = []
     with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for name, relative in files.items():
@@ -89,10 +115,15 @@ def main():
         archive.writestr("SHA256SUMS.txt", "\n".join(checksums) + "\n")
         archive.writestr(
             "提交前必读.txt",
-            f"邻里圈 v{args.version}\n\n报名及材料提交截止：2026-10-16 24:00（北京时间），以官网和确认邮件为准。\n官网：https://www.oschina.net/os2026/\n仓库：https://github.com/wyb123465/neighborhood-circle\n\n请填写真实团队署名和公开视频链接，再按确认邮件提交。\n源码ZIP内为单项目根目录。视频为实际运行截图分步讲解，含合成中文解说和字幕，不是连续录屏。\n路线与设施现场核验的未完成边界仍保留。\n本包不含密钥或私有原始响应。源码仓库由用户授权发布；没有自动报名、提交赛事平台或发送邮件。\n",
+            f"邻里圈 v{args.version}\n\n报名及材料提交截止：2026-10-16 24:00（北京时间），以官网和确认邮件为准。\n官网：https://www.oschina.net/os2026/\n仓库：https://github.com/wyb123465/neighborhood-circle\n\n{video_note}\n参赛人信息按真实报名表填写，最终视频链接仍需核验可访问。\n源码ZIP内为单项目根目录。路线与设施独立核验的限制仍保留。\n本包不含密钥或私有原始响应；没有自动报名、上传视频或发送邮件。\n",
         )
     sha = hashlib.sha256(target.read_bytes()).hexdigest()
-    (output / f"SHA256SUMS-v{args.version}.txt").write_text(f"{sha}  {target.name}\n", encoding="utf-8")
+    checksum = (
+        target.with_suffix(".sha256.txt")
+        if args.submission_date or args.without_video or args.recording
+        else output / f"SHA256SUMS-v{args.version}.txt"
+    )
+    checksum.write_text(f"{sha}  {target.name}\n", encoding="utf-8")
     print(f"提交材料包：{target}（{target.stat().st_size / 1024 / 1024:.2f} MiB）")
 
 

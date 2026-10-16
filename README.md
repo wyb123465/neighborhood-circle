@@ -71,7 +71,7 @@ node --test tests/*.test.cjs
 
 本仓库为“邻里圈”独立项目。`.env`、私有响应、虚拟环境和本地产物不进入仓库；服务端AK与模型密钥不进入浏览器。上游组件许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-参赛材料与填写模板见 [报名提交说明](docs/submission-guide.md)。团队署名、公开视频链接和最终报名提交由团队填写与完成；现场出入口、POI营业状态及非开发者试用仍需补充。
+提交前复核见 [2026-10-16检查记录](docs/preflight-2026-10-16.md)，新视频录制见 [最终录制提纲](docs/recording-final.md)。参赛材料与填写模板见 [报名提交说明](docs/submission-guide.md)。团队署名、公开视频链接和最终报名提交由团队填写与完成；现场出入口、POI营业状态及非开发者试用仍需补充。
 
 参与贡献：[CONTRIBUTING](CONTRIBUTING.md) · [维护机制](GOVERNANCE.md) · [安全反馈](SECURITY.md)。
 
