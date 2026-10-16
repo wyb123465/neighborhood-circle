@@ -98,7 +98,7 @@ def main():
     sdk_verified = checks.get("browser_sdk_verified") is True
     body.textColor = small.textColor = INK
     output = args.output
-    screenshot = ROOT / "assets/screenshots/workspace-v07.png"
+    screenshot = ROOT / "assets/screenshots/real-workspace-20261016.png"
     if not screenshot.is_file():
         raise SystemExit("请先保存新版实际工作台截图")
     story = [
@@ -115,7 +115,7 @@ def main():
             body,
         ),
         Image(str(screenshot), width=168 * mm, height=94 * mm, kind="proportional"),
-        p("实际工作台合成案例：合成数据用于复现算法，不对应真实上海社区。", small),
+        p("实际愚园路体检界面：百度道路底图、体检起点与测时网格；设施营业和实际入口仍待核验。", small),
     ]
     story += section_heading("2. 可复现的产品闭环")
     story += [
@@ -189,7 +189,7 @@ def main():
                 ["证据", "结果 / 限制"],
                 [
                     "工程检查",
-                    f"独立源码{checks.get('python_clean_passed', 123)}项Python测试全部通过、无跳过；{checks.get('frontend_passed', 21)}项前端测试通过。源码扫描、HTTP启动与无密钥路径均通过。",
+                    f"独立源码{checks.get('python_clean_passed', 127)}项Python测试全部通过、无跳过；{checks.get('frontend_passed', 26)}项前端测试通过。源码扫描、HTTP启动与无密钥路径均通过。",
                 ],
                 [
                     "真实AI链路",

@@ -84,6 +84,8 @@ def main():
     if args.submission_date:
         files["17-提交前复核.md"] = "docs/preflight-2026-10-16.md"
         files["18-录制提纲.md"] = "docs/recording-final.md"
+        files["19-体验修订记录.md"] = "docs/rework-2026-10-16.md"
+        files["20-成熟开源项目参考.md"] = "docs/open-source-references.md"
     for relative in files.values():
         source = ROOT / relative
         if not source.is_file() or not source.stat().st_size:

@@ -39,6 +39,7 @@ class EvidenceArgs(StrictArgs):
 
 class CompareArgs(EvidenceArgs):
     limit: int = Field(default=3, ge=1, le=3)
+    facility_type: Literal["医疗", "养老", "教育", "购物", "菜市场", "药店", "小学"] | None = None
 
 
 class FinishArgs(StrictArgs):
@@ -87,6 +88,32 @@ QUESTIONS = {
 def requested_candidate_limit(task):
     match = re.search(r"(?:前|最多|比较)\s*([123一二两三])\s*(?:个|处|种)", task)
     return {"1": 1, "2": 2, "3": 3, "一": 1, "二": 2, "两": 2, "三": 3}.get(match.group(1)) if match else None
+
+
+CANDIDATE_CATEGORIES = {
+    "医疗": "医疗",
+    "药店": "医疗",
+    "养老": "养老",
+    "教育": "教育",
+    "小学": "教育",
+    "购物": "购物",
+    "菜市场": "购物",
+}
+
+
+def requested_candidate_facility(task):
+    """Only interpret the explicit addition/candidate phrase, not all inspected categories."""
+    phrases = re.findall(r"(?:新增|增设|新建|补建|增加|添加)([^，。；;]{0,24})", task)
+    phrases += re.findall(r"([^，。；;]{0,10})候选", task)
+    found = {kind for phrase in phrases for kind in CANDIDATE_CATEGORIES if kind in phrase}
+    if "菜场" in " ".join(phrases):
+        found.add("菜市场")
+    for kind, category in (("菜市场", "购物"), ("药店", "医疗"), ("小学", "教育")):
+        if kind in found:
+            found.discard(category)
+    if len(found) > 1:
+        raise ValueError("请一次指定一个候选设施类型，再分别比较其他类型。")
+    return next(iter(found), None)
 
 
 def tool_definitions():
@@ -146,9 +173,21 @@ class ToolContext:
     def inspect_neighborhood(self, args):
         deferred_error = None
         args.categories = list(dict.fromkeys(args.categories))
+        facility_type = requested_candidate_facility(self.request.task)
+        candidate_category = CANDIDATE_CATEGORIES.get(facility_type)
+        if candidate_category and candidate_category not in args.categories:
+            raise ValueError(
+                f"需求指定{facility_type}候选，体检类别必须包含{candidate_category}，不能改成其他设施。"
+            )
         self.guard(False)
         if self.request.data_mode == "synthetic":
-            result = inspect(COMMUNITIES[args.community_id], args.categories, args.minutes, args.speed)
+            result = inspect(
+                COMMUNITIES[args.community_id],
+                args.categories,
+                args.minutes,
+                args.speed,
+                candidate_category=candidate_category,
+            )
             snapshot = {
                 "id": result["evidence_id"],
                 "evidence_id": result["evidence_id"],
@@ -161,7 +200,7 @@ class ToolContext:
             self.fact(
                 snapshot,
                 "summary",
-                f"合成样例按 {args.minutes} 分钟、{args.speed} 米/分钟计算：各类服务同时可达 {result['combined_coverage_pct']}%，缺口 {result['gap_count']}/{result['sample_count']} 个等权样点。",
+                f"离线示例：{result['sample_count'] - result['gap_count']}/{result['sample_count']}个街道样点在{args.minutes}分钟内能获得{'、'.join(args.categories)}服务（{result['combined_coverage_pct']}%），仍有{result['gap_count']}个样点缺少至少一类所选服务。样点不是居民人数。",
             )
             for category, row in result["coverage"].items():
                 self.fact(
@@ -269,6 +308,7 @@ class ToolContext:
                 )
             finally:
                 maps.close()
+        snapshot["candidate_facility"] = facility_type
         # A repeated deterministic snapshot replaces its older comparison facts.
         valid_ids = set(snapshot["fact_ids"])
         for key, fact in list(self.facts.items()):
@@ -300,10 +340,25 @@ class ToolContext:
             self.facts.pop(key, None)
         snapshot["fact_ids"] = [key for key in snapshot["fact_ids"] if key not in obsolete]
         result = snapshot["analysis"]["inspection"]
+        facility_type = (
+            requested_candidate_facility(self.request.task)
+            or args.facility_type
+            or snapshot.get("candidate_facility")
+        )
+        category = CANDIDATE_CATEGORIES.get(facility_type)
         rows = []
         if snapshot["mode"] == "synthetic":
             p = result["parameters"]
-            for candidate in result["recommendations"][: args.limit]:
+            before_gaps = {n["id"] for n in result["map"]["nodes"] if n["gap"]}
+            planning = inspect(
+                COMMUNITIES[result["community"]["id"]],
+                p["categories"],
+                p["minutes"],
+                p["speed_m_min"],
+                p["center"],
+                candidate_category=category,
+            )
+            for candidate in planning["recommendations"][: args.limit]:
                 self.guard(False)
                 after = inspect(
                     COMMUNITIES[result["community"]["id"]],
@@ -322,13 +377,25 @@ class ToolContext:
                     "gap_count": after["gap_count"],
                     "gain_count": result["gap_count"] - after["gap_count"],
                     "evidence_id": after["evidence_id"],
+                    "gained_nodes": [
+                        n["id"] for n in after["map"]["nodes"] if not n["gap"] and n["id"] in before_gaps
+                    ],
+                    "remaining_gap_nodes": [n["id"] for n in after["map"]["nodes"] if n["gap"]],
+                    "facility_type": facility_type or candidate["category"],
                     "target": {"type": "point", "x": node["x"], "y": node["y"]},
                 }
                 rows.append(row)
         else:
             blind = result["blind_spots"]
             covered_by_kind = {}
-            for candidate in blind["recommendations"][: args.limit]:
+            candidates = [
+                c
+                for c in blind["recommendations"]
+                if not facility_type
+                or c["kind"] == facility_type
+                or (facility_type in ("医疗", "教育", "购物") and CANDIDATE_CATEGORIES[c["kind"]] == category)
+            ]
+            for candidate in candidates[: args.limit]:
                 kind = candidate["kind"]
                 points = [p for p in blind["points"] if kind in p["missing_kinds"]]
                 covered = {
@@ -354,7 +421,7 @@ class ToolContext:
         snapshot["comparison"] = rows
         for i, row in enumerate(rows):
             if snapshot["mode"] == "synthetic":
-                text = f"互斥方案 {i + 1}（{row['category']} @ {row['node']}）：同时可达 {row['before_pct']}% → {row['after_pct']}%，新增覆盖 {row['gain_count']} 个样点，剩余缺口 {row['gap_count']} 个。"
+                text = f"方案{i + 1}：在标记{i + 1}处新增一个{row['category']}服务点，覆盖从{result['sample_count'] - result['gap_count']}增至{result['sample_count'] - row['gap_count']}个样点；新增{row['gain_count']}个，仍缺{row['gap_count']}个。这是单独方案模拟，尚未建设。"
             else:
                 text = f"{row['category']}参考点 {row['rank']}：独立覆盖 {row['independent_gain_count']} 个已知缺口样点，与前序同类点组合的新增覆盖为 {row['marginal_gain_count']} 个，组合后剩余缺口 {row['gap_count']} 个。"
             self.fact(

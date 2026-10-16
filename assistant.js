@@ -31,6 +31,8 @@ const ui = {
   layer: null,
   groups: {},
   facilityMarkers: [],
+  sampleMarkers: new Map(),
+  syntheticSelection: -1,
   highlight: null,
   bounds: null,
   mapStatus: null,
@@ -89,6 +91,7 @@ async function submit() {
   $('#toggleParameters').setAttribute('aria-expanded', 'false');
   busy(true);
   ui.result = null;
+  $('#decisionSummary').hidden = true;
   showError(null);
   $('#assistantAnswer').hidden = true;
   $('#assistantEvidence').hidden = true;
@@ -252,17 +255,28 @@ function renderEvidence(analysis, comparison = []) {
   ui.layer = L.layerGroup().addTo(ui.map);
   ui.highlight = null;
   ui.facilityMarkers = [];
+  ui.sampleMarkers = new Map();
   for (const name of ['samples', 'facilities', 'gaps', 'review', 'candidates'])
     ui.groups[name] = L.layerGroup().addTo(ui.layer);
   document.querySelectorAll('[data-layer]').forEach((b) => b.setAttribute('aria-pressed', 'true'));
   const r = analysis.inspection;
   const isSynthetic = analysis.type === 'synthetic';
+  $('#syntheticStory').hidden = !isSynthetic;
+  $('#legendUnknown').hidden = isSynthetic;
+  $('#legendGain').hidden = true;
+  document.querySelector('[data-layer="gaps"]').hidden = isSynthetic;
+  document.querySelector('[data-layer="review"]').hidden = isSynthetic;
+  text('[data-layer="samples"]', isSynthetic ? '街道位置' : '样点');
+  text('[data-layer="facilities"]', isSynthetic ? '现有服务点' : '设施');
+  text('#showWitness', '查看跨河绕行原因');
+  text('#legendReachable', isSynthetic ? '原本已覆盖的位置' : '阈值内 / 覆盖');
+  text('#legendGap', isSynthetic ? '仍缺服务的位置' : '阈值外 / 缺口');
   $('#showWitness').hidden = !isSynthetic;
   text('#evidenceSource', sourceNames[r.mode]);
   text(
     '#mapCaption',
     isSynthetic
-      ? '合成路网与等权样点。点击路径证据可查看绕行。'
+      ? `每个点代表一个街道位置，计算它到最近${r.parameters.categories.join('、')}服务点的步行时间；不是实际居民分布。`
       : '以社区中心为原点的米制示意图；输入与数据坐标为 BD-09。点位不代替连续等时圈。',
   );
   if (isSynthetic) {
@@ -278,7 +292,16 @@ function renderEvidence(analysis, comparison = []) {
       .addTo(ui.map)
       .bringToBack();
     for (const n of r.map.nodes)
-      point(n.x, n.y, `${n.id} · ${n.gap ? '服务缺口' : '同时覆盖'}`, n.gap ? '#b76b7b' : '#197257', 3);
+      ui.sampleMarkers.set(
+        n.id,
+        point(
+          n.x,
+          n.y,
+          n.gap ? '此位置仍缺少所选服务' : '此位置已能获得所选服务',
+          n.gap ? '#b76b7b' : '#8fb5a0',
+          4,
+        ),
+      );
     r.facilities.forEach((f, index) => {
       const n = r.map.nodes.find((n) => n.id === f.node);
       if (n)
@@ -289,8 +312,43 @@ function renderEvidence(analysis, comparison = []) {
           '#263d35',
           7,
           ui.groups.facilities,
-        ).on('click', () => focusFacility(index));
+        )
+          .on('click', () => focusFacility(index))
+          .unbindTooltip()
+          .bindTooltip(tooltip('现有' + f.category + '点'), { permanent: true, direction: 'top' });
     });
+    if (Number.isFinite(r.map.barrier_x_m)) {
+      const middleY = Math.max(...r.map.nodes.map((n) => n.y)) / 2;
+      for (const [name, dx] of [
+        ['河西', -2.5],
+        ['河东', 2.5],
+      ]) {
+        const icon = L.divIcon({
+          className: 'demo-region-label',
+          html: name,
+          iconSize: [50, 24],
+          iconAnchor: [25, 12],
+        });
+        L.marker([middleY + r.map.spacing_m * 3, r.map.barrier_x_m + dx * r.map.spacing_m], {
+          icon,
+          interactive: false,
+          keyboard: false,
+        }).addTo(ui.layer);
+      }
+      for (const row of r.map.crossing_rows || []) {
+        const icon = L.divIcon({
+          className: 'demo-crossing-label',
+          html: '过河通道',
+          iconSize: [70, 22],
+          iconAnchor: [35, 11],
+        });
+        L.marker([row * r.map.spacing_m, r.map.barrier_x_m], {
+          icon,
+          interactive: false,
+          keyboard: false,
+        }).addTo(ui.layer);
+      }
+    }
   } else {
     const points = analysis.isochrone?.points || [];
     const extent = analysis.isochrone?.parameters.extent_m || 1500;
@@ -335,10 +393,12 @@ function renderEvidence(analysis, comparison = []) {
   }
   ui.map.fitBounds(ui.bounds, { padding: [20, 20], animate: false });
   const center = isSynthetic ? r.map.nodes.find((n) => n.id === r.parameters.center) : { x: 0, y: 0 };
-  if (center) {
+  if (center && !isSynthetic) {
     ui.originMarker = point(center.x, center.y, '体检中心', '#142b22', 9, ui.layer);
     if (!isSynthetic)
-      ui.originMarker.bindTooltip(tooltip('起点 · 体检中心'), { permanent: true, direction: 'right' });
+      ui.originMarker
+        .unbindTooltip()
+        .bindTooltip(tooltip('起点 · 体检中心'), { permanent: true, direction: 'right' });
   }
   comparison.forEach((row, index) => {
     const icon = L.divIcon({
@@ -384,6 +444,7 @@ function renderEvidence(analysis, comparison = []) {
   }
   ui.geo.visibleGroups = {};
   ui.geoReady = ui.geo.setData(analysis, comparison);
+  if (isSynthetic) renderSyntheticPlans(analysis, comparison);
 }
 function renderComparison(rows, synthetic) {
   $('#comparisonPanel').hidden = !rows.length;
@@ -436,6 +497,12 @@ async function focusFact(fact) {
     const target = fact.target,
       r = snapshot.analysis.inspection;
     if (target.type === 'point') {
+      if (snapshot.analysis.type === 'synthetic') {
+        const index = (ui.syntheticComparison || []).findIndex(
+          (row) => row.target.x === target.x && row.target.y === target.y,
+        );
+        if (index >= 0) showSyntheticPlan(index);
+      }
       ui.highlight = L.circleMarker([target.y, target.x], {
         radius: 15,
         color: '#8b6b24',
@@ -475,6 +542,7 @@ async function invalidate(reset = true) {
     sequence = controller.sequence;
   busy(false);
   ui.result = null;
+  $('#decisionSummary').hidden = true;
   $('#assistantAnswer').hidden = true;
   $('#assistantEvidence').hidden = true;
   for (const id of ['summaryMetrics', 'scenarioPanel', 'reviewPanel', 'viewTabs']) $('#' + id).hidden = true;
@@ -495,13 +563,18 @@ function syncMode() {
   $('#communityField').hidden = live;
   $('#addressFields').hidden = !live;
   $('#speedField').hidden = live;
+  $('#loadLiveExample').hidden = !live;
+  text('#taskLabel', live ? '这次想解决什么问题？' : '离线示例的问题（建议从单类养老开始）');
+  if (!live && !$('#assistantTask').value.trim())
+    $('#assistantTask').value = '检查养老服务缺口，比较前两个候选方案，并说明依据。';
+  document.querySelectorAll('[data-example]')[1].hidden = !live;
   text(
     '#dataHint',
     live
       ? ui.mapStatus?.replay_mode
         ? `历史真实数据回放 · 录制于 ${ui.mapStatus.replay_preset.recorded_at}，本次不请求百度。地点与参数须匹配录制。`
         : '百度 POI 与步行耗时；坐标 BD-09。检索与测时会消耗账号配额。'
-      : '合成路网与设施，等权样点不代表人口。',
+      : '教学示例：每个点是一个街道位置。先看现状，再切换新增养老点方案；不对应真实社区。',
   );
 }
 $('#assistantForm').addEventListener('submit', (e) => {
@@ -521,6 +594,7 @@ $('#stopAssistant').addEventListener('click', async () => {
 });
 $('#retryAssistant').addEventListener('click', submit);
 $('#dataMode').addEventListener('change', () => {
+  ui.modeTouched = true;
   invalidate();
   syncMode();
 });
@@ -583,6 +657,12 @@ async function initialize() {
   } else text('#modelStatus', '模型状态检查失败');
   if (results[1].status === 'fulfilled') {
     ui.mapStatus = results[1].value;
+    if (
+      !ui.modeTouched &&
+      ui.mapStatus.configured &&
+      new URLSearchParams(location.search).get('demo') !== 'care'
+    )
+      $('#dataMode').value = 'live';
     if (ui.mapStatus.replay_mode) {
       $('#assistantAddress').value = ui.mapStatus.replay_preset.address;
       $('#assistantCity').value = ui.mapStatus.replay_preset.city || '';

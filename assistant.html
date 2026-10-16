@@ -46,13 +46,13 @@
           <form id="assistantForm">
             <label
               >数据来源<select id="dataMode">
-                <option value="synthetic">合成样例 · 可复现</option>
-                <option value="live">百度真实数据</option>
+                <option value="live">真实社区体检 · 百度地图</option>
+                <option value="synthetic" selected>离线养老示例 · 非真实社区</option>
               </select></label
             ><label id="communityField"
               >片区样例<select id="assistantCommunity">
-                <option value="bridge-demo">滨河片区 · 有绕行障碍</option>
-                <option value="grid-demo">连通片区 · 对照样例</option>
+                <option value="bridge-demo">跨河养老服务 · 教学示例</option>
+                <option value="grid-demo">道路连通 · 对照示例</option>
               </select></label
             >
             <div id="addressFields" hidden>
@@ -89,7 +89,7 @@
               </div>
               <p class="quiet">需求中明确的时间优先；真实模式采用百度耗时。</p>
             </details>
-            <label class="task-label" for="assistantTask">这次想解决什么问题？</label
+            <label class="task-label" id="taskLabel" for="assistantTask">这次想解决什么问题？</label
             ><textarea
               id="assistantTask"
               rows="3"
@@ -103,9 +103,9 @@
           </form>
           <div class="assistant-examples">
             <button type="button" data-example="检查养老服务缺口，比较前两个候选方案，并说明依据。">
-              养老缺口与方案比较</button
+              养老服务体检</button
             ><button type="button" data-example="检查医疗、教育、购物设施，找出一公里内的服务缺口。">
-              三类设施专项体检
+              菜市场、药店、小学体检
             </button>
           </div>
           <p class="quiet" id="sessionHint">可继续追问，或开始新的体检。</p>
@@ -161,11 +161,20 @@
               <circle cx="35" cy="55" r="5" fill="#247254" />
               <circle cx="155" cy="90" r="5" fill="#247254" />
             </svg>
-            <h3>从一个具体问题开始。</h3>
-            <p>选择片区，说明关心的设施。这里将呈现空间证据、诊断和参考方案。</p>
+            <h3>先选地点，再看缺口。</h3>
+            <p>输入社区或道路门牌，查看真实设施、步行耗时与专项缺口。离线示例只用于演示算法。</p>
+            <button type="button" class="button primary" id="loadLiveExample" hidden>
+              填入愚园路真实体检
+            </button>
             <button type="button" class="button" id="loadCareExample">
-              加载养老分析示例<i data-lucide="arrow-up-left"></i></button
+              查看离线养老示例<i data-lucide="arrow-up-left"></i></button
             ><span>示意图 · 尚未计算本次结果</span>
+          </section>
+          <section id="decisionSummary" class="decision-summary panel" aria-label="本次体检结论" hidden>
+            <span class="eyebrow">本次结果</span>
+            <h3 id="decisionTitle"></h3>
+            <p id="decisionText"></p>
+            <small id="decisionScope"></small>
           </section>
           <div class="mobile-view-tabs" id="viewTabs" hidden role="group" aria-label="结果视图">
             <button type="button" data-view="answer" aria-pressed="true">结论</button
@@ -184,6 +193,11 @@
                 <span id="evidenceSource" class="quiet"></span>
               </div>
               <p id="mapCaption" class="quiet"></p>
+              <div id="syntheticStory" class="synthetic-story" hidden>
+                <p id="syntheticQuestion"></p>
+                <div id="syntheticPlans" role="group" aria-label="切换现状与新增设施方案"></div>
+                <p id="syntheticPlanNote" role="status"></p>
+              </div>
               <div class="layer-toolbar" role="group" aria-label="地图图层">
                 <button type="button" data-layer="samples" aria-pressed="true">样点</button
                 ><button type="button" data-layer="facilities" aria-pressed="true">设施</button
@@ -196,9 +210,10 @@
               </div>
               <div id="assistantMap" role="region" aria-label="体检空间证据地图"></div>
               <div class="map-legend">
-                <span><i class="legend-box reachable"></i>阈值内 / 覆盖</span
-                ><span><i class="legend-box gap"></i>阈值外 / 缺口</span
-                ><span><i class="legend-box unknown"></i>未知</span>
+                <span><i class="legend-box reachable"></i><b id="legendReachable">阈值内 / 覆盖</b></span
+                ><span id="legendGain" hidden><i class="legend-box gained"></i>本方案新增覆盖</span
+                ><span><i class="legend-box gap"></i><b id="legendGap">阈值外 / 缺口</b></span
+                ><span id="legendUnknown"><i class="legend-box unknown"></i>未知</span>
               </div>
               <p id="focusNote" role="status" class="quiet">点击证据引用可定位相关图层。</p>
               <div id="routeOrigin" class="route-origin" hidden>

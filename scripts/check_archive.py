@@ -55,7 +55,14 @@ def main():
                 assert not stat.S_ISLNK(member.external_attr >> 16)
             archive.extractall(destination)
         source = destination / "neighborhood-circle"
-        subprocess.run([python, "-m", "pytest", "-q", "--tb=short"], cwd=source, env=env, check=True)
+        # Test fixtures intentionally contain dummy secrets and raw responses.
+        # Keep them outside the extracted public source, which is scanned below.
+        subprocess.run(
+            [python, "-m", "pytest", "-q", "--tb=short", "--basetemp", str(destination / "pytest-temp")],
+            cwd=source,
+            env=env,
+            check=True,
+        )
         subprocess.run([python, "scripts/security_scan.py"], cwd=source, env=env, check=True)
         with socket.socket() as sock:
             sock.bind(("127.0.0.1", 0))

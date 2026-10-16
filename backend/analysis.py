@@ -38,7 +38,7 @@ def prepared(serialized):
     return graph, lengths
 
 
-def inspect(spec, categories, minutes=15, speed=80, center=None, addition=None):
+def inspect(spec, categories, minutes=15, speed=80, center=None, addition=None, candidate_category=None):
     serialized = json.dumps(spec, ensure_ascii=False, sort_keys=True)
     graph, lengths = prepared(serialized)
     center = center or spec["center"]
@@ -78,22 +78,29 @@ def inspect(spec, categories, minutes=15, speed=80, center=None, addition=None):
     total = len(graph)
     pct = lambda n: round(n / total * 100, 1)
     weakest = min(categories, key=lambda c: (base_counts[c], CATEGORIES.index(c)))
+    if candidate_category is not None and candidate_category not in categories:
+        raise ValueError("候选类别必须包含在本次体检类别中")
+    planning_category = candidate_category or weakest
     candidates = []
     for candidate in graph:
-        if candidate in targets[weakest]:
+        if candidate in targets[planning_category]:
             continue
         gained = sum(
-            d > threshold and lengths[n].get(candidate, math.inf) <= threshold
-            for n, d in before[weakest].items()
+            d > threshold
+            and lengths[n].get(candidate, math.inf) <= threshold
+            and all(before[c][n] <= threshold for c in categories if c != planning_category)
+            for n, d in before[planning_category].items()
         )
         if gained:
             candidates.append(
                 {
                     "node": candidate,
-                    "category": weakest,
+                    "category": planning_category,
                     "gain": gained,
-                    "before_pct": pct(base_counts[weakest]),
-                    "after_pct": pct(base_counts[weakest] + gained),
+                    "before_pct": pct(sum(all(before[c][n] <= threshold for c in categories) for n in graph)),
+                    "after_pct": pct(
+                        sum(all(before[c][n] <= threshold for c in categories) for n in graph) + gained
+                    ),
                 }
             )
     candidates.sort(key=lambda c: (-c["gain"], c["node"]))
@@ -130,7 +137,11 @@ def inspect(spec, categories, minutes=15, speed=80, center=None, addition=None):
         (
             serialized
             + METHOD_VERSION
-            + json.dumps([categories, minutes, speed, center, addition], ensure_ascii=False, sort_keys=True)
+            + json.dumps(
+                [categories, minutes, speed, center, addition, candidate_category],
+                ensure_ascii=False,
+                sort_keys=True,
+            )
         ).encode()
     ).hexdigest()[:16]
     return {
@@ -146,6 +157,7 @@ def inspect(spec, categories, minutes=15, speed=80, center=None, addition=None):
             "speed_m_min": speed,
             "center": center,
             "addition": addition,
+            "candidate_category": candidate_category,
         },
         "sample_count": total,
         "facility_count": len(relevant),
@@ -182,6 +194,10 @@ def inspect(spec, categories, minutes=15, speed=80, center=None, addition=None):
         "map": {
             "nodes": [{"id": n, **graph.nodes[n], "gap": n in gaps} for n in graph],
             "spacing_m": spec["spacing_m"],
+            "barrier_x_m": (spec["barrier_column"] + 0.5) * spec["spacing_m"]
+            if spec["barrier_column"] is not None
+            else None,
+            "crossing_rows": spec["crossing_rows"],
         },
         "limitations": [
             "合成路网与设施，不代表上海任何真实社区；本次计算未调用百度 API。",

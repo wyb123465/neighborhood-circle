@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { LocalInspectionStore, officialRouteUrl } = require('../workspace-store.js');
+const { LocalInspectionStore, officialRouteUrl, syntheticPreview } = require('../workspace-store.js');
 const storage = () => {
   let value = null;
   return {
@@ -55,4 +55,50 @@ test('official route links encode text and reject invalid locations', () => {
     false,
   );
   assert.equal(officialRouteUrl({ lat: NaN, lng: 0 }, { lat: 0, lng: 0 }), null);
+});
+
+test('switching plans recolors actual gained locations without accumulating separate plans', () => {
+  const inspection = {
+    sample_count: 4,
+    gap_count: 3,
+    map: {
+      nodes: [
+        { id: 'a', gap: false },
+        { id: 'b', gap: true },
+        { id: 'c', gap: true },
+        { id: 'd', gap: true },
+      ],
+    },
+  };
+  const rows = [
+    { gain_count: 2, gap_count: 1, gained_nodes: ['b', 'c'], remaining_gap_nodes: ['d'] },
+    { gain_count: 1, gap_count: 2, gained_nodes: ['d'], remaining_gap_nodes: ['b', 'c'] },
+  ];
+  const first = syntheticPreview(inspection, rows, 0);
+  assert.equal(first.after, 3);
+  assert.equal(first.statuses.b, 'gained');
+  const second = syntheticPreview(inspection, rows, 1);
+  assert.equal(second.after, 2);
+  assert.equal(second.statuses.b, 'gap');
+  assert.equal(second.statuses.d, 'gained');
+  const original = syntheticPreview(inspection, rows);
+  assert.equal(original.after, 1);
+  assert.equal(original.statuses.d, 'gap');
+  assert.equal(inspection.gap_count, 3);
+});
+
+test('old snapshots cannot invent a plan coverage layer from a gain count', () => {
+  const inspection = {
+    sample_count: 2,
+    gap_count: 1,
+    map: {
+      nodes: [
+        { id: 'a', gap: false },
+        { id: 'b', gap: true },
+      ],
+    },
+  };
+  const view = syntheticPreview(inspection, [{ gain_count: 1, gap_count: 0 }], 0);
+  assert.equal(view.mapAvailable, false);
+  assert.equal(view.statuses.b, 'gap');
 });

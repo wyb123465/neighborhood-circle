@@ -10,6 +10,8 @@ from backend.assistant_model import ModelClient, ModelConfig, ModelError
 from backend.assistant_tools import CompareArgs, EvidenceArgs, FinishArgs, InspectArgs, ToolContext
 from backend.baidu import BaiduApiError, BaiduConfig, BaiduMapsClient
 from backend.live_inspection import balanced_selection, inspect_live
+from backend.analysis import inspect, CATEGORIES
+from backend.sample_data import load_communities
 from backend.main import app
 
 
@@ -374,3 +376,68 @@ def test_assistant_http_validation_and_secret_free_status():
     assert "key" not in status.json() and "base_url" not in status.json()
     assert client.post("/api/assistant/runs", json={"task": "检查", "minutes": 99}).status_code == 422
     assert client.get("/api/assistant/runs/missing").status_code == 404
+
+
+def test_explicit_market_candidate_cannot_be_replaced_by_weakest_care_category():
+    manager = api.RunManager()
+    job = direct_run(manager, "检查医疗、养老、教育、购物四类设施，比较前两个新增菜市场候选方案")
+    assert job.status == "complete"
+    assert len(job.result["comparison"]) == 2
+    assert all(row["category"] == "购物" for row in job.result["comparison"])
+    context = ToolContext(job.request, job.session, job.guard)
+    compared = context.compare_candidates(CompareArgs(limit=2, facility_type="养老"))
+    assert all(row["category"] == "购物" for row in compared["comparison"])
+
+
+def test_candidate_gain_nodes_match_independent_recalculation_and_ranking():
+    spec = load_communities()["bridge-demo"]
+    baseline = inspect(spec, list(CATEGORIES), candidate_category="购物")
+    for candidate in baseline["recommendations"]:
+        after = inspect(spec, list(CATEGORIES), addition={"node": candidate["node"], "category": "购物"})
+        assert candidate["gain"] == baseline["gap_count"] - after["gap_count"]
+    job = direct_run(api.RunManager(), "检查养老缺口并比较前两个候选方案")
+    before_gap = {n["id"] for n in job.result["analysis"]["inspection"]["map"]["nodes"] if n["gap"]}
+    for row in job.result["comparison"]:
+        gained, remaining = set(row["gained_nodes"]), set(row["remaining_gap_nodes"])
+        assert len(gained) == row["gain_count"]
+        assert len(remaining) == row["gap_count"]
+        assert not gained & remaining
+        assert gained | remaining == before_gap
+
+
+def test_live_candidates_are_filtered_by_requested_kind_before_limit():
+    blind = {
+        "radius_m": 1000,
+        "points": [
+            {"dx_m": -900, "dy_m": 0, "missing_kinds": ["菜市场"]},
+            {"dx_m": 900, "dy_m": 0, "missing_kinds": ["菜市场"]},
+        ],
+        "recommendations": [
+            {"kind": "药店", "rank": 1, "dx_m": 0, "dy_m": 0},
+            {"kind": "菜市场", "rank": 1, "dx_m": -900, "dy_m": 0},
+            {"kind": "菜市场", "rank": 2, "dx_m": 900, "dy_m": 0},
+        ],
+    }
+    snapshot = {
+        "id": "live",
+        "evidence_id": "live",
+        "mode": "live-partial",
+        "parameters": {},
+        "candidate_count": 3,
+        "fact_ids": [],
+        "analysis": {"inspection": {"blind_spots": blind}},
+    }
+    session = {"latest": "live", "snapshots": {"live": snapshot}, "facts": {}}
+    context = ToolContext(
+        api.RunRequest(task="比较前两个新增菜市场候选", data_mode="live"), session, lambda *args: None
+    )
+    rows = context.compare_candidates(CompareArgs(limit=2, facility_type="药店"))["comparison"]
+    assert len(rows) == 2 and all(r["category"] == "菜市场" for r in rows)
+    assert rows[1]["cumulative_gain_count"] == 2
+
+
+def test_explicit_candidate_requires_matching_inspection_scope():
+    request = api.RunRequest(task="新增菜市场候选")
+    context = ToolContext(request, {"facts": {}}, lambda *args: None)
+    with pytest.raises(ValueError, match="必须包含购物"):
+        context.inspect_neighborhood(InspectArgs(categories=["养老"]))

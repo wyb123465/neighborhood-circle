@@ -36,43 +36,46 @@
           <h2>走得到，<br />才算生活圈。</h2>
           <p>从设施缺口到规划参考，<br />每一步都有地图证据。</p>
           <div class="home-actions">
-            <a class="button primary" href="/assistant.html">开始体检<i data-lucide="arrow-right"></i></a
+            <a class="button primary" href="/assistant.html">开始真实体检<i data-lucide="arrow-right"></i></a
             ><a class="home-secondary" href="/assistant.html?demo=care"
-              >体验合成样例<i data-lucide="arrow-up-right"></i
+              >离线算法示例<i data-lucide="arrow-up-right"></i
             ></a>
           </div>
-          <span class="home-hero-note">合成样例可离线复现。配置模型与地图服务后，可分析真实数据。</span>
+          <span class="home-hero-note">配置模型与地图后直接分析真实社区；无密钥时可运行离线养老示例。</span>
         </div>
         <div class="home-map-showcase">
           <div class="home-map-label">
-            <span><i class="dot"></i>滨河片区 · 合成案例</span><span>路径证据</span>
+            <span><i class="dot"></i>愚园路 · 真实体检界面</span><span>百度地图与步行测时</span>
           </div>
-          <svg id="homeRoute" viewBox="0 0 700 510" role="img" aria-label="合成路网与绕行路径"></svg>
+          <img
+            src="assets/screenshots/real-workspace-20261016.png"
+            alt="愚园路真实体检界面，显示体检起点、测时网格与设施证据"
+          />
           <div class="home-path-result">
-            <span>同一起终点的两种判断</span
-            ><strong
-              >直线 <b id="homeStraight">—</b> 分钟<span>→</span>路网 <b id="homeNetwork">—</b> 分钟</strong
-            ><small id="homeEvidence">正在读取本地合成证据</small>
+            <span>从真实地点开始</span><strong>定位起点 → 看设施 → 核对缺口</strong>
+            <small>这是实际工作台截图；进入体检后运行并查看本次数据与来源。</small>
           </div>
         </div>
       </section>
       <section class="home-story">
         <div>
-          <span class="eyebrow">看清问题，再比较改变</span>
-          <h2>一个参考点，<br />改善可以重新计算。</h2>
-          <p>在同一片区、同一阈值下，把每个候选分别与原始方案比较。结果保留样点分母和计算依据。</p>
+          <span class="eyebrow">可选：离线算法验证</span>
+          <h2>新增一个养老点，<br />缺口减少多少？</h2>
+          <p>在同一教学片区、同一阈值下，分别比较新增前后。每个样点是一个街道位置，不是居民人数。</p>
+          <p>绕行校验：直线 <b id="homeStraight">—</b> 分钟，路网 <b id="homeNetwork">—</b> 分钟。</p>
+          <small id="homeSampleEvidence">正在读取离线算法结果</small>
           <a href="/assistant.html?demo=care" class="home-secondary"
             >查看养老缺口案例<i data-lucide="arrow-right"></i
           ></a>
         </div>
         <div class="home-comparison">
           <div class="home-comparison-row">
-            <span>原始养老覆盖</span><strong id="homeBefore">—</strong>
+            <span>当前能获得养老服务的位置</span><strong id="homeBefore">—</strong>
             <div class="home-track"><i id="homeBeforeBar"></i></div>
             <small id="homeBeforeNote">等权样点口径</small>
           </div>
           <div class="home-comparison-row">
-            <span>模拟加入首个候选</span><strong id="homeAfter">—</strong>
+            <span>模拟新增方案1之后</span><strong id="homeAfter">—</strong>
             <div class="home-track"><i id="homeAfterBar"></i></div>
             <small id="homeAfterNote">仅合成样例；不代表可建设地块</small>
           </div>

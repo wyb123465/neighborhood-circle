@@ -95,9 +95,34 @@
     if (typeof city === 'string' && city.trim()) params.set('region', city.trim());
     return 'https://api.map.baidu.com/direction?' + params;
   }
-  if (typeof module !== 'undefined') module.exports = { LocalInspectionStore, officialRouteUrl };
+  function syntheticPreview(inspection, comparison, selected = -1) {
+    const row = selected >= 0 ? comparison[selected] : null;
+    const beforeGap = new Set(inspection.map.nodes.filter((n) => n.gap).map((n) => n.id));
+    const mapAvailable = !row || (Array.isArray(row.gained_nodes) && Array.isArray(row.remaining_gap_nodes));
+    const gained = new Set(mapAvailable && row ? row.gained_nodes : []);
+    const gaps = new Set(mapAvailable && row ? row.remaining_gap_nodes : beforeGap);
+    const statuses = Object.fromEntries(
+      inspection.map.nodes.map((n) => [
+        n.id,
+        gained.has(n.id) ? 'gained' : gaps.has(n.id) ? 'gap' : 'covered',
+      ]),
+    );
+    return {
+      row,
+      mapAvailable,
+      statuses,
+      total: inspection.sample_count,
+      before: inspection.sample_count - inspection.gap_count,
+      after: row ? inspection.sample_count - row.gap_count : inspection.sample_count - inspection.gap_count,
+      gain: row?.gain_count || 0,
+      gap: row?.gap_count ?? inspection.gap_count,
+    };
+  }
+  if (typeof module !== 'undefined')
+    module.exports = { LocalInspectionStore, officialRouteUrl, syntheticPreview };
   else {
     root.LocalInspectionStore = LocalInspectionStore;
     root.officialRouteUrl = officialRouteUrl;
+    root.syntheticPreview = syntheticPreview;
   }
 })(typeof window !== 'undefined' ? window : globalThis);

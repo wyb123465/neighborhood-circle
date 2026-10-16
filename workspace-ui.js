@@ -88,6 +88,7 @@ function renderWorkspace(job) {
     text('#metric' + suffix, values[i][1]);
     text('#metric' + suffix + 'Note', values[i][2]);
   });
+  renderDecision(result);
   if (ui.saved) {
     text('#runStatus', '本机历史快照');
     text('#evidenceSource', sourceNames[r.mode] + ' · 快照');
@@ -120,6 +121,136 @@ function renderWorkspace(job) {
       });
   }
   icons();
+}
+function renderDecision(result) {
+  const a = result.analysis;
+  $('#decisionSummary').hidden = !a;
+  if (!a) return;
+  const r = a.inspection;
+  if (a.type === 'synthetic') {
+    showSyntheticPlan(-1);
+    return;
+  }
+  text(
+    '#decisionTitle',
+    `已评估 ${r.facility_count} 处设施，发现 ${r.blind_spots.known_gap_count} 个已知专项缺口位置`,
+  );
+  text(
+    '#decisionText',
+    Object.entries(r.blind_spots.kinds)
+      .map(([kind, row]) => `${kind}：${row.gap_count ?? '未知'}个缺口、${row.unknown_count}个未知`)
+      .join('；') + '。下一步查看灰格位置和设施详情，核对入口及营业状态。',
+  );
+  text(
+    '#decisionScope',
+    '设施分钟数从体检中心出发；专项缺口按1公里直线距离检查。两种口径分别计算，样点不代表人口。',
+  );
+}
+function renderSyntheticPlans(analysis, comparison) {
+  ui.syntheticComparison = comparison;
+  text(
+    '#syntheticQuestion',
+    `本例只演示：在当前布局上新增一处服务点，能让多少街道位置在${analysis.inspection.parameters.minutes}分钟内获得所选服务？`,
+  );
+  const choices = [
+    { label: '① 当前布局', index: -1 },
+    ...comparison.map((row, index) => ({ label: `方案${index + 1}：新增${row.category}点`, index })),
+  ];
+  $('#syntheticPlans').replaceChildren(
+    ...choices.map(({ label, index }) => {
+      const button = element('button', label, 'button');
+      button.type = 'button';
+      button.dataset.plan = String(index);
+      button.disabled = index >= 0 && !syntheticPreview(analysis.inspection, comparison, index).mapAvailable;
+      button.addEventListener('click', () => showSyntheticPlan(index));
+      return button;
+    }),
+  );
+  showSyntheticPlan(-1);
+}
+function showSyntheticPlan(selected) {
+  if (ui.analysis?.type !== 'synthetic') return;
+  const r = ui.analysis.inspection,
+    rows = ui.syntheticComparison || [],
+    view = syntheticPreview(r, rows, selected);
+  if (!view.mapAvailable) return;
+  ui.syntheticSelection = selected;
+  $('#decisionSummary').hidden = false;
+  const scope = r.parameters.categories.join('、');
+  text(
+    '#decisionTitle',
+    view.row
+      ? `方案${selected + 1}：缺服务的位置从 ${r.gap_count} 减少到 ${view.gap} 个`
+      : `当前布局：${view.before} 个位置能获得服务，${view.gap} 个仍缺服务`,
+  );
+  text(
+    '#decisionText',
+    view.row
+      ? `在标记${selected + 1}处新增一个${view.row.category}服务点后，新增覆盖 ${view.gain} 个街道位置，${view.after}/${view.total} 个位置满足本次${scope}服务条件。这是方案模拟，设施尚未建设。`
+      : `本例检查${scope}服务。每个圆点是一个街道位置；从该位置出发，在${r.parameters.minutes}分钟内能到所选服务点，就算覆盖。点击下方方案，直接对照改善前后。`,
+  );
+  text(
+    '#decisionScope',
+    '仅离线算法演示，不对应真实社区；多个类别表示每一类都需满足。方案分别与当前布局比较，增益不能相加。',
+  );
+  const metrics = [
+    ['已覆盖街道位置', `${view.after} / ${view.total}`, `满足${scope}服务条件`],
+    ['仍缺服务的位置', view.gap, `阈值 ${r.parameters.minutes} 分钟`],
+    view.row
+      ? ['本方案新增覆盖', '+' + view.gain, '与当前布局相比']
+      : ['可比较方案', rows.length, '点击方案查看改善后的地图'],
+  ];
+  ['Primary', 'Second', 'Third'].forEach((suffix, i) => {
+    text('#metric' + suffix + 'Label', metrics[i][0]);
+    text('#metric' + suffix, metrics[i][1]);
+    text('#metric' + suffix + 'Note', metrics[i][2]);
+  });
+  const colors = { covered: '#8fb5a0', gained: '#197257', gap: '#b76b7b' };
+  for (const [id, marker] of ui.sampleMarkers) {
+    const status = view.statuses[id];
+    marker.setStyle({
+      color: colors[status],
+      fillColor: colors[status],
+      fillOpacity: status === 'gained' ? 1 : 0.65,
+      radius: status === 'gained' ? 5 : 4,
+    });
+    marker.bindTooltip(
+      tooltip(
+        status === 'gained'
+          ? '本方案新增覆盖的位置'
+          : status === 'gap'
+            ? '仍缺服务的位置'
+            : '原本已覆盖的位置',
+      ),
+    );
+  }
+  ui.groups.candidates.clearLayers();
+  if (view.row) {
+    const icon = L.divIcon({
+      className: '',
+      html: `<span class="plan-pin">${selected + 1}</span>`,
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+    });
+    L.marker([view.row.target.y, view.row.target.x], { icon })
+      .bindTooltip(tooltip(`模拟新增${view.row.category}点 · 方案${selected + 1}`), {
+        permanent: true,
+        direction: 'right',
+      })
+      .addTo(ui.groups.candidates);
+  }
+  document
+    .querySelectorAll('[data-plan]')
+    .forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.plan) === selected)));
+  $('#legendGain').hidden = !view.row;
+  text(
+    '#syntheticPlanNote',
+    view.row
+      ? `浅绿：原本覆盖；深绿：新增 ${view.gain} 个；粉色：仍缺 ${view.gap} 个。返回“当前布局”可再次对照。`
+      : rows.length
+        ? '先看当前布局，再点方案1或方案2；地图会实际显示新增覆盖的位置。'
+        : '本次尚无候选方案。点击“比较候选”后再看改善；旧快照缺少图层时请重新体检。',
+  );
 }
 function renderScenarios(value) {
   $('#scenarioPanel').hidden = !value;
@@ -611,12 +742,29 @@ $('#toggleFacts').addEventListener('click', () => {
   $('#assistantFacts').dataset.expanded = String(open);
   text('#toggleFacts', open ? '收起详细证据' : '查看全部证据');
 });
-$('#loadCareExample').addEventListener('click', () => {
+$('#loadCareExample').addEventListener('click', async () => {
   if (ui.busy) return;
-  invalidate();
+  await invalidate();
+  ui.modeTouched = true;
   $('#dataMode').value = 'synthetic';
   $('#assistantCommunity').value = 'bridge-demo';
+  $('#assistantMinutes').value = '15';
+  $('#assistantSpeed').value = '80';
   $('#assistantTask').value = '检查养老服务缺口，比较前两个候选方案，并说明依据。';
+  syncMode();
+  document.body.classList.remove('params-collapsed');
+  $('#assistantTask').focus();
+});
+$('#loadLiveExample').addEventListener('click', async () => {
+  if (ui.busy) return;
+  await invalidate();
+  ui.modeTouched = true;
+  $('#dataMode').value = 'live';
+  $('#assistantAddress').value = '上海市长宁区愚园路';
+  $('#assistantCity').value = '上海市';
+  $('#assistantMinutes').value = '15';
+  $('#assistantTask').value =
+    '检查菜市场、药店、小学和养老服务的15分钟生活圈缺口，比较前两个新增菜市场候选方案并说明依据。';
   syncMode();
   document.body.classList.remove('params-collapsed');
   $('#assistantTask').focus();
