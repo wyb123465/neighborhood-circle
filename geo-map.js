@@ -320,13 +320,13 @@
       const row = this.facilityRows?.get(index);
       if (!this.active || !row) return;
       this.toggle('facilities', true);
-      this.map.panTo(new root.BMapGL.Point(row.point.lng, row.point.lat));
+      this.map.setCenter(new root.BMapGL.Point(row.point.lng, row.point.lat), { noAnimation: true });
       this.open(row);
     }
     focusOffset(x, y) {
       if (!this.active || !this.scene) return;
       const p = offsetToBD(this.scene.center, x, y);
-      this.map.panTo(new root.BMapGL.Point(p.lng, p.lat));
+      this.map.setCenter(new root.BMapGL.Point(p.lng, p.lat), { noAnimation: true });
     }
     toggle(group, visible) {
       this.visibleGroups[group] = visible;
@@ -336,11 +336,11 @@
       if (this.active && this.map && this.scene)
         this.map.setViewport(
           this.scene.bounds.map((p) => new root.BMapGL.Point(p.lng, p.lat)),
-          { margins: [30, 30, 30, 30] },
+          { margins: [30, 30, 30, 30], enableAnimation: false, delay: 0 },
         );
     }
     zoom(step) {
-      if (this.active && this.map) this.map.setZoom(this.map.getZoom() + step);
+      if (this.active && this.map) this.map.setZoom(this.map.getZoom() + step, { noAnimation: true });
     }
   }
   const api = { offsetToBD, squareCorners, heatColor, buildScene, GeoEvidenceView };

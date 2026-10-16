@@ -379,7 +379,7 @@ function renderEvidence(analysis, comparison = []) {
     );
   }
   ui.geo.visibleGroups = {};
-  ui.geo.setData(analysis, comparison);
+  ui.geoReady = ui.geo.setData(analysis, comparison);
 }
 function renderComparison(rows, synthetic) {
   $('#comparisonPanel').hidden = !rows.length;
@@ -416,48 +416,54 @@ function renderComparison(rows, synthetic) {
     }),
   );
 }
-function focusFact(fact) {
+async function focusFact(fact) {
   const snapshot = ui.result.snapshots[fact.snapshot_id];
   if (!snapshot) return;
+  const focusSerial = (ui.focusSerial || 0) + 1;
+  ui.focusSerial = focusSerial;
   if (analysisKey(ui.analysis) !== analysisKey(snapshot.analysis))
     renderEvidence(snapshot.analysis, snapshot.comparison);
-  setResultsView('map');
-  ui.map.invalidateSize();
-  ui.highlight?.remove();
-  const target = fact.target,
-    r = snapshot.analysis.inspection;
-  if (target.type === 'point') {
-    ui.highlight = L.circleMarker([target.y, target.x], {
-      radius: 15,
-      color: '#8b6b24',
-      weight: 3,
-      fill: false,
-    }).addTo(ui.map);
-    ui.map.fitBounds(ui.bounds, { animate: false });
-  } else if (target.type === 'path' && snapshot.analysis.type === 'synthetic') {
-    const points = r.witness.path
-      .map((id) => r.map.nodes.find((n) => n.id === id))
-      .filter(Boolean)
-      .map((n) => [n.y, n.x]);
-    if (points.length > 1) {
-      ui.highlight = L.polyline(points, { color: '#8b6b24', weight: 5 }).addTo(ui.map);
-      ui.map.fitBounds(ui.highlight.getBounds(), { padding: [30, 30], animate: false });
+  await ui.geoReady;
+  if (focusSerial !== ui.focusSerial || analysisKey(ui.analysis) !== analysisKey(snapshot.analysis)) return;
+  setResultsView('map', () => {
+    if (focusSerial !== ui.focusSerial || analysisKey(ui.analysis) !== analysisKey(snapshot.analysis)) return;
+    ui.map.invalidateSize();
+    ui.highlight?.remove();
+    const target = fact.target,
+      r = snapshot.analysis.inspection;
+    if (target.type === 'point') {
+      ui.highlight = L.circleMarker([target.y, target.x], {
+        radius: 15,
+        color: '#8b6b24',
+        weight: 3,
+        fill: false,
+      }).addTo(ui.map);
+      ui.map.fitBounds(ui.bounds, { animate: false });
+    } else if (target.type === 'path' && snapshot.analysis.type === 'synthetic') {
+      const points = r.witness.path
+        .map((id) => r.map.nodes.find((n) => n.id === id))
+        .filter(Boolean)
+        .map((n) => [n.y, n.x]);
+      if (points.length > 1) {
+        ui.highlight = L.polyline(points, { color: '#8b6b24', weight: 5 }).addTo(ui.map);
+        ui.map.fitBounds(ui.highlight.getBounds(), { padding: [30, 30], animate: false });
+      }
+    } else if (target.type === 'blind_spots') {
+      ui.highlight = L.layerGroup(
+        r.blind_spots.points
+          .filter((p) => p.missing_kinds.includes(target.kind))
+          .map((p) => L.circleMarker([p.dy_m, p.dx_m], { radius: 10, color: '#8b6b24', fill: false })),
+      ).addTo(ui.map);
+      ui.map.fitBounds(ui.bounds, { animate: false });
+    } else ui.map.fitBounds(ui.bounds, { animate: false });
+    if (ui.geo?.active) {
+      ui.geo.fit();
+      if (target.type === 'point') ui.geo.focusOffset(target.x, target.y);
+      if (target.type === 'blind_spots') ui.geo.toggle('gaps', true);
     }
-  } else if (target.type === 'blind_spots') {
-    ui.highlight = L.layerGroup(
-      r.blind_spots.points
-        .filter((p) => p.missing_kinds.includes(target.kind))
-        .map((p) => L.circleMarker([p.dy_m, p.dx_m], { radius: 10, color: '#8b6b24', fill: false })),
-    ).addTo(ui.map);
-    ui.map.fitBounds(ui.bounds, { animate: false });
-  } else ui.map.fitBounds(ui.bounds, { animate: false });
-  if (ui.geo?.active) {
-    ui.geo.fit();
-    if (target.type === 'point') ui.geo.focusOffset(target.x, target.y);
-    if (target.type === 'blind_spots') ui.geo.toggle('gaps', true);
-  }
-  text('#focusNote', fact.text + ' · 证据 ' + fact.evidence_id);
-  $('#assistantEvidence').scrollIntoView({ block: 'nearest', behavior: 'auto' });
+    text('#focusNote', fact.text + ' · 证据 ' + fact.evidence_id);
+    $('#assistantEvidence').scrollIntoView({ block: 'nearest', behavior: 'auto' });
+  });
 }
 async function invalidate(reset = true) {
   ui.geo?.reset();

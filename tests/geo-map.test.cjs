@@ -60,7 +60,7 @@ function displayHarness() {
         overlays.push(o);
       }
       setViewport() {}
-      panTo() {}
+      setCenter() {}
       openInfoWindow(info) {
         this.info = info;
       }
@@ -176,6 +176,56 @@ test('geographic layer toggles work and vendor POI text cannot become HTML', asy
     assert.ok(!view.map.info.html.includes('<img'));
     view.reset();
     assert.equal(view.active, false);
+  } finally {
+    harness.restore();
+  }
+});
+
+test('rapid fit, candidate focus and zoom keep the latest location after queued animations settle', async () => {
+  const harness = displayHarness();
+  try {
+    const { GeoEvidenceView } = require('../geo-map.js');
+    const view = new GeoEvidenceView(harness.local);
+    await view.setData(harness.analysis);
+    const pending = [];
+    let location = center,
+      zoom = 15;
+    const move = (point, animate) => {
+      const apply = () => {
+        location = point;
+      };
+      animate ? pending.push(apply) : apply();
+    };
+    view.map = {
+      setViewport(bounds, options) {
+        move(center, options?.enableAnimation !== false);
+      },
+      setCenter(point, options) {
+        move(point, !options?.noAnimation);
+      },
+      panTo(point) {
+        move(point, true);
+      },
+      getZoom: () => zoom,
+      setZoom(value, options) {
+        const apply = () => {
+          zoom = value;
+        };
+        options?.noAnimation ? apply() : pending.push(apply);
+      },
+    };
+    view.fit();
+    view.focusOffset(-1000, 0);
+    view.zoom(1);
+    view.zoom(1);
+    const expected = offsetToBD(center, -1000, 0);
+    assert.equal(location.lng, expected.lng);
+    assert.equal(location.lat, expected.lat);
+    assert.equal(zoom, 17);
+    pending.reverse().forEach((apply) => apply());
+    assert.equal(location.lng, expected.lng);
+    assert.equal(location.lat, expected.lat);
+    assert.equal(zoom, 17);
   } finally {
     harness.restore();
   }

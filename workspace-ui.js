@@ -26,7 +26,7 @@ function orderedFacts(result) {
               : 4;
   return [...result.facts].sort((a, b) => priority(a) - priority(b));
 }
-function setResultsView(view) {
+function setResultsView(view, afterMapReady) {
   $('.workspace-analysis').dataset.view = view;
   document.body.classList.toggle('comparison-view', view === 'compare');
   document.querySelectorAll('[data-view]').forEach((b) => {
@@ -37,6 +37,7 @@ function setResultsView(view) {
       ui.map?.invalidateSize();
       if (ui.bounds) ui.map?.fitBounds(ui.bounds, { padding: [16, 16], animate: false });
       ui.geo?.fit();
+      afterMapReady?.();
     });
 }
 function renderWorkspace(job) {
